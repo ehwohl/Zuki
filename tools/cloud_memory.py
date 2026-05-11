@@ -390,6 +390,68 @@ class CloudMemory:
             log.warning(f"[BIO-CHECK] Fehler: {e}")
             return None
 
+    def save_skill_conversation(self, skill_name: str, text: str) -> str:
+        """
+        Speichert eine Skill-Konversation in der Cloud.
+        Redis-Key: zuki:skill:{name}:conversations:{tenant}
+        Fire-and-forget im Hintergrund.
+        """
+        if not self.enabled:
+            return "Cloud nicht konfiguriert"
+
+        try:
+            from core.tenant import get_tenant_manager
+            _tenant = get_tenant_manager().current()
+        except Exception:
+            _tenant = "self"
+
+        payload = {
+            "skill_name": skill_name,
+            "text":       text[:8000],
+            "source":     "skill",
+            "session_id": self._session_id,
+            "tenant":     _tenant,
+            "timestamp":  datetime.datetime.now().isoformat(),
+            "v":          1,
+        }
+
+        t = threading.Thread(
+            target=self._post_skill,
+            args=(payload,),
+            daemon=True,
+            name=f"skill-save-{skill_name}",
+        )
+        t.start()
+        return "queued"
+
+    def get_skill_conversations(self, skill_name: str, limit: int = 20) -> list[dict]:
+        """
+        Holt Skill-Konversationen aus der Cloud.
+        Gibt [] zurück wenn Cloud nicht konfiguriert oder Fehler.
+        """
+        if not self.enabled:
+            return []
+
+        try:
+            from core.tenant import get_tenant_manager
+            _tenant = get_tenant_manager().current()
+        except Exception:
+            _tenant = "self"
+
+        try:
+            skill_url = self._skill_conversations_url()
+            req = urllib.request.Request(
+                url     = f"{skill_url}?skill={skill_name}&tenant={_tenant}&limit={limit}",
+                headers = {"x-zuki-token": self._token},
+                method  = "GET",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                body = json.loads(resp.read().decode())
+                return body.get("conversations", [])
+        except Exception as e:
+            log.warning(f"[SKILL-CONV] Abruf fehlgeschlagen ({skill_name}): {e}")
+            return []
+
     def migrate_to_tenant(self, tenant: str) -> str:
         """
         Ruft POST /api/memory/migrate auf, um Legacy-Einträge (zuki:memories)
@@ -424,6 +486,57 @@ class CloudMemory:
         except Exception as e:
             return f"Migration-Fehler: {e}"
 
+    def cleanup_cloud(self, scope: str = "all") -> dict:
+        """
+        Bereinigt Cloud-Memories für den aktiven Tenant.
+        Geschützt: source="bio", "system": True.
+        scope: "all" | "source:<name>"
+        Gibt {"deleted": int, "protected": int, "total": int, "error": str} zurück.
+        """
+        if not self.enabled:
+            return {"deleted": 0, "protected": 0, "total": 0, "error": "Cloud nicht konfiguriert"}
+
+        try:
+            from core.tenant import get_tenant_manager
+            _tenant = get_tenant_manager().current()
+        except Exception:
+            _tenant = "self"
+
+        try:
+            cleanup_url = self._cleanup_url()
+            data = json.dumps(
+                {"tenant": _tenant, "scope": scope}, ensure_ascii=False
+            ).encode("utf-8")
+            req = urllib.request.Request(
+                url     = cleanup_url,
+                data    = data,
+                headers = {
+                    "Content-Type": "application/json",
+                    "x-zuki-token": self._token,
+                },
+                method  = "POST",
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                body = json.loads(resp.read().decode())
+                log.info(
+                    f"[CLOUD-CLEANUP] tenant={_tenant}  scope={scope}  "
+                    f"deleted={body.get('deleted', 0)}  "
+                    f"protected={body.get('protected', 0)}"
+                )
+                return {
+                    "deleted":   body.get("deleted",   0),
+                    "protected": body.get("protected", 0),
+                    "total":     body.get("total",     0),
+                    "error":     "",
+                }
+        except urllib.error.HTTPError as e:
+            msg = f"HTTP {e.code}: Cleanup fehlgeschlagen"
+            log.warning(f"[CLOUD-CLEANUP] {msg}")
+            return {"deleted": 0, "protected": 0, "total": 0, "error": msg}
+        except Exception as e:
+            log.warning(f"[CLOUD-CLEANUP] Fehler: {e}")
+            return {"deleted": 0, "protected": 0, "total": 0, "error": str(e)}
+
     def should_ask_auto(self) -> bool:
         return (
             self.enabled
@@ -443,6 +556,49 @@ class CloudMemory:
         self._auto_save = False
 
     # ── HTTP-Backend ──────────────────────────────────────────────────────────
+
+    def _cleanup_url(self) -> str:
+        """Leitet die Cleanup-URL aus der Memory-URL ab."""
+        base = self._url
+        for suffix in ("/api/memory", "/memory"):
+            if base.endswith(suffix):
+                base = base[: -len(suffix)]
+                break
+        return base + "/api/memory/cleanup"
+
+    def _skill_conversations_url(self) -> str:
+        """Leitet die Skill-Conversations-URL aus der Memory-URL ab."""
+        base = self._url
+        for suffix in ("/api/memory", "/memory"):
+            if base.endswith(suffix):
+                base = base[: -len(suffix)]
+                break
+        return base + "/api/skill/conversations"
+
+    def _post_skill(self, payload: dict) -> str:
+        """Sendet eine Skill-Konversation an /api/skill/conversations."""
+        try:
+            data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            req  = urllib.request.Request(
+                url     = self._skill_conversations_url(),
+                data    = data,
+                headers = {
+                    "Content-Type": "application/json",
+                    "x-zuki-token": self._token,
+                },
+                method  = "POST",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                body  = json.loads(resp.read().decode())
+                total = body.get("total", "?")
+                log.info(
+                    f"[SKILL-CONV] Gespeichert | skill={payload.get('skill_name')} "
+                    f"| total={total}"
+                )
+                return f"ok  ·  {total}"
+        except Exception as e:
+            log.warning(f"[SKILL-CONV] Post fehlgeschlagen: {e}")
+            return f"Fehler: {e}"
 
     def _post(self, payload: dict) -> str:
         """

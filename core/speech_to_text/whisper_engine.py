@@ -4,10 +4,19 @@ import warnings
 import logging
 import tempfile
 import numpy as np
-import sounddevice as sd
-from scipy.io.wavfile import write as wav_write
-
 from core.logger import get_logger
+
+# sounddevice benötigt PortAudio:
+#   Windows: automatisch mitgeliefert via pip install sounddevice
+#   Linux:   sudo apt install portaudio19-dev  dann pip install sounddevice
+try:
+    import sounddevice as sd
+    _SD_AVAILABLE = True
+except (ImportError, OSError) as _sd_err:
+    _SD_AVAILABLE = False
+    _SD_ERROR = _sd_err
+
+from scipy.io.wavfile import write as wav_write
 
 # Suppress FP16/CPU warnings from Whisper and PyTorch before any import
 warnings.filterwarnings("ignore", message=".*FP16.*")
@@ -78,6 +87,18 @@ class WhisperEngine:
 
     def transcribe_microphone(self, duration_sec: int | None = None) -> str:
         """Record from microphone via sounddevice and transcribe."""
+        if not _SD_AVAILABLE:
+            hint = (
+                "sudo apt install portaudio19-dev && pip install sounddevice"
+                if sys.platform.startswith("linux")
+                else "pip install sounddevice"
+            )
+            log.error(f"sounddevice nicht verfügbar: {_SD_ERROR}")
+            raise RuntimeError(
+                f"Mikrofon-Aufnahme nicht möglich — sounddevice fehlt.\n"
+                f"  Lösung: {hint}"
+            )
+
         secs = duration_sec or self._record_sec
         log.info(f"Aufnahme startet ({secs}s)")
         try:
@@ -101,7 +122,8 @@ class WhisperEngine:
 
     def shutdown(self) -> None:
         """Clean up temp files and stop any active audio streams."""
-        sd.stop()
+        if _SD_AVAILABLE:
+            sd.stop()
         for path in self._tmp_files:
             try:
                 if os.path.exists(path):

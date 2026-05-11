@@ -132,3 +132,20 @@ class UIRenderer(ABC):
     def print_system_test(self, results: list) -> None:
         """Gibt System-Diagnose-Ergebnisse als farbige Tabelle aus."""
         ...
+
+    # ── Router-Agent ──────────────────────────────────────────────────────────
+
+    @abstractmethod
+    def print_router_decision(self, skills: list, user_input: str) -> None:
+        """Zeigt an welche Skills der Router für diese Anfrage gewählt hat."""
+        ...
+
+    # ── Cleanup ───────────────────────────────────────────────────────────────
+
+    @abstractmethod
+    def print_cleanup_result(self, results: dict) -> None:
+        """
+        Zeigt Cleanup-Ergebnisse an.
+        results: {scope → {"deleted": int, ...}} — ein Key pro ausgeführter Operation.
+        """
+        ...

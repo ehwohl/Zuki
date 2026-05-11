@@ -48,6 +48,8 @@ from tools.instance_guard import acquire as _guard_acquire, release as _guard_re
 from tools.session_state import SessionState
 from tools.system_test import SystemTest
 from core.tenant import get_tenant_manager
+from core.router_agent import RouterAgent
+from tools.cleanup_manager import CleanupManager
 
 LISTEN_TRIGGERS  = {"hör zu", "hoer zu"}
 EXIT_TRIGGERS    = {"exit", "quit", "beenden"}
@@ -273,6 +275,9 @@ def run():
     # ── Skill-Discovery ────────────────────────────────────────────────────────
     skill_registry.discover_skills()
     log.info(f"Skills geladen: {skill_registry.list_names()}")
+
+    # ── Router-Agent ───────────────────────────────────────────────────────────
+    router = RouterAgent(api_mgr)
 
     # ── Startup-Dashboard — Screen clearen für saubere Anzeige ───────────────
     os.system("cls" if sys.platform == "win32" else "clear")
@@ -627,6 +632,7 @@ def run():
                     auto_backup          = _auto_backup,
                     github_backup        = _github_backup,
                     tenant_mgr           = tenant_mgr,
+                    router_agent         = router,
                 )
                 if subname is None:
                     results = tester.run_all()
@@ -642,7 +648,88 @@ def run():
                     )
                 continue
 
-            # ── Skill-Dispatch ─────────────────────────────────────────────────
+            # ── Cleanup-Befehle ────────────────────────────────────────────────
+            if cmd == "cleanup" or cmd.startswith("cleanup "):
+                _parts   = cmd.split()
+                _subname = _parts[1] if len(_parts) > 1 else None
+                _cleaner = CleanupManager()
+                _results = {}
+
+                if _subname is None:
+                    # Hilfe-Übersicht
+                    ui.speak_zuki(
+                        "Cleanup-Befehle:\n"
+                        "  cleanup vision   → Screenshots in temp/vision/ löschen\n"
+                        "  cleanup chats    → Lokale Chat-History löschen\n"
+                        "  cleanup old      → Alte Backup-Snapshots löschen (behält 3)\n"
+                        "  cleanup cloud    → Cloud-Memories bereinigen (schützt Bio)\n"
+                        "  cleanup all      → vision + chats + old (mit Bestätigung)"
+                    )
+                    continue
+
+                elif _subname == "vision":
+                    _results["vision"] = _cleaner.cleanup_vision()
+
+                elif _subname == "chats":
+                    ui.speak_zuki(
+                        "Chat-History wirklich löschen?\n"
+                        "Alle lokalen Gesprächs-Einträge werden entfernt. (ja / nein)"
+                    )
+                    _ans = ui.user_prompt()
+                    if _ans.strip().lower() in {"ja", "j", "yes", "y"}:
+                        _results["chats"] = _cleaner.cleanup_chats(history_mgr=history)
+                    else:
+                        ui.system_msg("[Cleanup] Abgebrochen.")
+                        continue
+
+                elif _subname == "old":
+                    _results["old backups"] = _cleaner.cleanup_old_backups()
+
+                elif _subname == "cloud":
+                    if not cloud.enabled:
+                        ui.error_msg(
+                            "Cloud nicht konfiguriert — CLOUD_MEMORY_URL + TOKEN in .env prüfen."
+                        )
+                        continue
+                    ui.speak_zuki(
+                        "Cloud-Memories für diesen Tenant bereinigen?\n"
+                        "Geschützte Einträge (Bio, system) bleiben erhalten. (ja / nein)"
+                    )
+                    _ans = ui.user_prompt()
+                    if _ans.strip().lower() in {"ja", "j", "yes", "y"}:
+                        ui.system_msg("[Cleanup] Cloud-Bereinigung läuft...")
+                        _results["cloud"] = cloud.cleanup_cloud()
+                    else:
+                        ui.system_msg("[Cleanup] Abgebrochen.")
+                        continue
+
+                elif _subname == "all":
+                    ui.speak_zuki(
+                        "Komplett-Cleanup: Screenshots, Chat-History und alte Backups löschen?\n"
+                        "Cloud-Daten werden NICHT automatisch bereinigt. (ja / nein)"
+                    )
+                    _ans = ui.user_prompt()
+                    if _ans.strip().lower() in {"ja", "j", "yes", "y"}:
+                        _results["vision"]      = _cleaner.cleanup_vision()
+                        _results["chats"]       = _cleaner.cleanup_chats(history_mgr=history)
+                        _results["old backups"] = _cleaner.cleanup_old_backups()
+                    else:
+                        ui.system_msg("[Cleanup] Abgebrochen.")
+                        continue
+
+                else:
+                    ui.error_msg(
+                        f"Unbekannter Cleanup-Befehl: '{_subname}'\n"
+                        "    Verfügbar: vision  chats  old  cloud  all"
+                    )
+                    continue
+
+                if _results:
+                    ui.print_cleanup_result(_results)
+                    _save_state()
+                continue
+
+            # ── Skill-Dispatch (Schnellpfad: exakter Trigger-Match) ───────────
             skill = skill_registry.get_skill_for(cmd)
             if skill:
                 history.append("user", user_input)
@@ -661,10 +748,58 @@ def run():
                     _save_state()
                     if cloud.auto_save:
                         cloud.save(response, source="auto")
+                    cloud.save_skill_conversation(skill.name, response)
                     ui.speak_zuki(response)
                     ui.speaking()
                     tts.speak(response)
                 continue
+
+            # ── Router-Agent: kein Trigger-Match → LLM entscheidet ────────────
+            _routable = skill_registry.get_all_descriptions()
+            if _routable and not api_mgr.simulation:
+                ui.thinking()
+                _chosen_names = router.route(user_input, _routable)
+                if _chosen_names:
+                    ui.print_router_decision(_chosen_names, user_input)
+                    history.append("user", user_input)
+                    _responses = []
+                    for _sname in _chosen_names:
+                        _sk = skill_registry.get_skill_for(
+                            next((s["triggers"][0] for s in _routable if s["name"] == _sname), _sname)
+                        )
+                        if _sk is None:
+                            # Trigger-Map-Lookup als Fallback
+                            from skills import registry as _sr
+                            _sk = next(
+                                (inst for inst in set(_sr._registry.values()) if inst.name == _sname),
+                                None,
+                            )
+                        if _sk is None:
+                            continue
+                        log.info(f"[ROUTER-INVOKE] {_sname} | input={user_input[:60]}")
+                        _r = _sk.handle({
+                            "user_input": user_input,
+                            "cmd":        cmd,
+                            "api_mgr":   api_mgr,
+                            "llm":       llm,
+                            "profile":   profile,
+                        })
+                        if _r is not None:
+                            _responses.append(_r)
+                            cloud.save_skill_conversation(_sname, _r)
+
+                    if _responses:
+                        response = "\n\n".join(_responses)
+                        history.append("assistant", response)
+                        last_response = response
+                        _save_state()
+                        if cloud.auto_save:
+                            cloud.save(response, source="auto")
+                        ui.speak_zuki(response)
+                        ui.speaking()
+                        tts.speak(response)
+                        continue
+                    # Router wählte Skills, aber alle gaben None zurück → LLM-Fallback
 
             # ── Report (nur im Broker-Modus) ───────────────────────────────────
             if news.is_report_trigger(user_input):

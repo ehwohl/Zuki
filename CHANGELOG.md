@@ -4,6 +4,239 @@ Alle Änderungen chronologisch dokumentiert. Neueste Einträge oben.
 
 ---
 
+## Bundle 8 — Plattform-Agnostik (2026-05-11)
+
+**Status: ✅ Abgeschlossen**
+
+### Implementiert
+
+- **`core/text_to_speech/tts_backend.py`** (neu): `TTSBackend` ABC
+  - `speak(text)`, `shutdown()`, `list_voices()`, `get_status()` als abstractmethods
+- **`core/text_to_speech/windows_tts.py`** (neu): `WindowsTTS(TTSBackend)`
+  - pyttsx3 / SAPI5 Implementierung aus `tts_engine.py` extrahiert
+  - Spacebar-Mute via msvcrt-Watcher-Thread
+  - `get_status() → dict` mit backend, platform, voice, ready, speaking
+- **`core/text_to_speech/linux_tts.py`** (neu): `LinuxTTS(TTSBackend)`
+  - Piper-Stub mit vollständigem LIVE UPGRADE Kommentar
+  - `get_status()` → ready=False (Stub klar markiert)
+- **`core/text_to_speech/tts_engine.py`** (überarbeitet): wird zur Factory
+  - `_build_backend()` wählt per `sys.platform`: win32→WindowsTTS, linux→LinuxTTS
+  - Öffentliche API (`speak`, `shutdown`, `list_voices`, `get_status`) delegiert ans Backend
+- **`tools/window_control/`** (neues Paket):
+  - `backend.py`: `WindowBackend` ABC — `available()`, `get_status()`, `list_windows()`, `focus_window()`, `minimize_window()`, `maximize_window()`, `close_window()`, `open_app()`, `close_app()`, `lock_screen()`, `shutdown_pc()`, `restart_pc()`
+  - `windows_backend.py`: `WindowsWindowBackend` — echte Win32-Implementierung via ctypes
+    - `_enum_windows()` via `EnumWindows` + `IsWindowVisible`
+    - `_find_window()` case-insensitive Titel-Suche
+    - `list_windows()` gibt alle sichtbaren Fenster-Titel zurück
+    - `focus_window()`, `minimize_window()`, `maximize_window()` via `ShowWindow`
+    - `close_window()` via `WM_CLOSE` PostMessage
+    - `open_app()` via `start` shell, `close_app()` via `taskkill /f /im`
+    - `lock_screen()` via `LockWorkStation()`, Shutdown/Restart via subprocess
+  - `linux_backend.py`: `LinuxWindowBackend` — xdotool+wmctrl Stub
+    - Alle Methoden mit vollständigen LIVE UPGRADE Kommentaren für xdotool/wmctrl
+  - `factory.py`: `get_window_backend()` — wählt per `sys.platform`
+  - `__init__.py`: Paket-Export
+- **`tools/pc_control.py`** (überarbeitet): delegiert ans WindowBackend
+  - Lazy-Init via `_get_backend()` Singleton
+  - `available()` + `get_status()` als Status-API
+  - `list_windows()`, `focus_window()`, `minimize_window()`, `maximize_window()`, `close_window()` — neu
+  - `open_file()` plattformbewusst: `os.startfile` (Win) / `xdg-open` (Linux)
+  - `set_volume()` plattformbewusst: pycaw (Win) / amixer (Linux)
+  - Clipboard-Methoden via pyperclip (plattform-neutral, optional)
+- **`core/speech_to_text/whisper_engine.py`** (erweitert): Audio-In Linux-Validierung
+  - `sounddevice` Import mit try/except: `_SD_AVAILABLE` + `_SD_ERROR` Flags
+  - `transcribe_microphone()` prüft `_SD_AVAILABLE` vor Aufnahme
+  - Plattformbewusster Fix-Hint: Windows vs. Linux Installationsanleitung
+  - `shutdown()` prüft `_SD_AVAILABLE` vor `sd.stop()`
+- **`tools/system_test.py`**: 17. Subsystem `"platform"`
+  - Prüft TTS-Backend (bereit?), Window-Control-Backend (verfügbar?), sounddevice
+  - Status: ok wenn alle drei bereit, warn wenn Stubs oder fehlende Dependencies
+
+### Geänderte Files
+
+- `core/text_to_speech/tts_backend.py`    — **neu** (ABC)
+- `core/text_to_speech/windows_tts.py`   — **neu** (WindowsTTS)
+- `core/text_to_speech/linux_tts.py`     — **neu** (LinuxTTS Stub)
+- `core/text_to_speech/tts_engine.py`    — Factory (war: monolithisch)
+- `tools/window_control/__init__.py`      — **neu** (Paket)
+- `tools/window_control/backend.py`       — **neu** (WindowBackend ABC)
+- `tools/window_control/windows_backend.py` — **neu** (Win32 Implementierung)
+- `tools/window_control/linux_backend.py` — **neu** (Stub)
+- `tools/window_control/factory.py`       — **neu** (Factory)
+- `tools/pc_control.py`                   — delegiert ans Backend, erweitert
+- `core/speech_to_text/whisper_engine.py` — Audio-In Validierung
+- `tools/system_test.py`                  — `"platform"` (17. Subsystem)
+
+### Neue Status-APIs
+
+- `TTSEngine.get_status() → dict`         — backend, platform, voice, ready, speaking
+- `WindowsWindowBackend.get_status() → dict` — backend, platform, available
+- `LinuxWindowBackend.get_status() → dict`   — backend, platform, available=False
+- `PCControl.get_status() → dict`         — delegiert ans Backend
+- `PCControl.available() → bool`          — delegiert ans Backend
+- `PCControl.list_windows() → list[str]`  — neu (war nicht im Stub)
+
+### Notizen
+
+- **Keine Breaking Changes**: `TTSEngine` öffentliche API unverändert (`speak`, `shutdown`, `list_voices`).
+  `get_status()` ist neu hinzugekommen.
+- **PCControl Erweiterung**: Das alte Stub hatte nur 10 Methoden mit `NotImplementedError`.
+  Jetzt sind auf Windows `list_windows`, `focus_window`, `minimize_window`, `maximize_window`,
+  `close_window` echt implementiert.
+- **Stimme Katja**: Nicht auf diesem Windows installiert → Fallback auf "Hedda". Erwartetes Verhalten.
+- **Linux-Migration**: Wenn Zuki auf Linux umzieht, müssen nur `LinuxTTS` (Piper) und
+  `LinuxWindowBackend` (xdotool+wmctrl) befüllt werden — kein Core-Touch.
+
+---
+
+## Bundle 7 — Cleanup-Befehle (2026-05-11)
+
+**Status: ✅ Abgeschlossen**
+
+### Implementiert
+
+- **`tools/cleanup_manager.py`** (neu): `CleanupManager`-Klasse
+  - `cleanup_vision() → dict` — Löscht .jpg/.png aus `temp/vision/`
+  - `cleanup_chats(history_mgr) → dict` — Löscht lokale Chat-History via HistoryManager oder Datei-direkt
+  - `cleanup_old_backups(keep=3) → dict` — Löscht ältere Backup-Snapshots, behält neueste `keep` Stück
+  - `self_test() → dict` — Prüft Status aller Cleanup-Targets (für system test 16)
+  - Log-Marker: `[CLEANUP]`
+- **`zuki_cloud/api/index.py`** neuer Endpunkt:
+  - `POST /api/memory/cleanup` — Löscht Cloud-Memories für Tenant
+  - Geschützt: `source="bio"`, `"system": True` in Einträgen — werden **niemals** gelöscht
+  - `scope`: `"all"` oder `"source:<name>"` für selektive Bereinigung
+  - Audit-Log-Eintrag bei jedem Cleanup
+  - Response: `{deleted, protected, total, tenant, scope}`
+- **`tools/cloud_memory.py`** neue Methoden:
+  - `cleanup_cloud(scope="all") → dict` — Ruft `/api/memory/cleanup` auf
+  - `_cleanup_url()` — URL-Helper (analog zu `_skill_conversations_url`)
+- **`core/main.py`** Cleanup-Befehls-Handler:
+  - `cleanup` → Hilfe-Übersicht
+  - `cleanup vision` → sofort, kein Prompt
+  - `cleanup chats` → mit Bestätigungs-Prompt
+  - `cleanup old` → sofort (3 Snapshots behalten)
+  - `cleanup cloud` → mit Bestätigungs-Prompt, Cloud-Enabled-Check
+  - `cleanup all` → vision + chats + old mit Bestätigungs-Prompt (kein Auto-Cloud)
+- **`core/ui_renderer.py`**: `print_cleanup_result(results)` als `@abstractmethod`
+- **`core/ui.py`**: `print_cleanup_result()` in `TerminalRenderer` + Forwarding-Funktion
+  - Farbige Ergebnis-Tabelle: grün OK / grau nichts zu tun / rot Fehler
+  - Dashboard-Befehlsreferenz um `cleanup` erweitert
+- **16. Subsystem "cleanup"** in `tools/system_test.py`:
+  - Zeigt Status aller Cleanup-Targets (Frames, History, Snapshots)
+
+### Geänderte Files
+
+- `tools/cleanup_manager.py`   — **neu**
+- `zuki_cloud/api/index.py`    — `POST /api/memory/cleanup`, Audit-Log-Eintrag
+- `tools/cloud_memory.py`      — `cleanup_cloud()`, `_cleanup_url()`
+- `core/ui_renderer.py`        — `print_cleanup_result()` als abstractmethod
+- `core/ui.py`                 — `print_cleanup_result()` in TerminalRenderer + Forwarding,
+                                 Dashboard-Befehlsreferenz ergänzt
+- `core/main.py`               — CleanupManager-Import, Cleanup-Befehls-Handler
+- `tools/system_test.py`       — `"cleanup": self._test_cleanup` (16. Subsystem)
+
+### Neue Status-APIs
+
+- `CleanupManager.cleanup_vision() → dict`
+- `CleanupManager.cleanup_chats(history_mgr) → dict`
+- `CleanupManager.cleanup_old_backups(keep=3) → dict`
+- `CleanupManager.self_test() → dict`
+- `CloudMemory.cleanup_cloud(scope="all") → dict`
+
+### Notizen
+
+- **Schutz-Logik in Cloud**: `source="bio"` und `"system": True` werden vor Cleanup
+  herausgefiltert und zurückgeschrieben — kein Datenverlust möglich.
+- **`cleanup all` schließt Cloud bewusst aus**: User muss Cloud-Cleanup explizit mit
+  `cleanup cloud` bestätigen — verhindert versehentlichen Massenverlust.
+- **`cleanup old` behält 3 Snapshots** (statt 7 wie AutoBackup) — für Cleanup bewusst
+  konservativ. Konstante `_DEFAULT_KEEP_BACKUPS = 3` in cleanup_manager.py anpassbar.
+- **16. system-test-Subsystem**: `system test cleanup` zeigt Frames / History / Snapshots-Count.
+
+---
+
+## Bundle 6 — Router-Agent (2026-05-11)
+
+**Status: ✅ Abgeschlossen**
+
+### Implementiert
+
+- **`core/router_agent.py`** (neu): `RouterAgent`-Klasse
+  - `route(user_input, skills_info) → list[str]` — LLM entscheidet welche Skills relevant sind
+  - Klassifikations-Prompt mit Skill-Namen, Beschreibungen, Triggern
+  - JSON-Parsing der LLM-Antwort (tolerant gegenüber Freitext rund um JSON)
+  - SIM-Modus: immer `[]` — kein Token-Verbrauch durch Router
+  - Decision-Log in `temp/router_decisions.jsonl` (JSONL, append-only)
+  - `last_decision() → dict | None`, `decision_count() → int`, `self_test() → dict`
+  - Log-Marker: `[ROUTER]`, `[ROUTER-INVOKE]`
+- **Skill-Dispatch in `core/main.py`** zweistufig:
+  1. Schnellpfad: exakter Trigger-Match via `get_skill_for(cmd)` (0 Token)
+  2. Router-Pfad: LLM-Klassifikation wenn kein Trigger-Match (1 kleiner LLM-Call)
+  - Skill-Antworten werden per `cloud.save_skill_conversation()` in der Cloud gespeichert
+  - Output zeigt `[Router] -> skill1, skill2` wenn Router-Pfad aktiv
+  - Fallback auf General-LLM-Chat wenn Router `[]` zurückgibt
+- **`skills/base.py`**: `description: str = ""` — neues Feld für Router-Klassifikation
+- **`skills/professor/professor.py`**: `description` gesetzt
+- **`skills/registry.py`**: `get_all_descriptions() → list[dict]` — Skills mit Beschreibung
+  für Router (filtert Skills ohne description heraus)
+- **Cloud-API `zuki_cloud/api/index.py`** zwei neue Endpunkte:
+  - `POST /api/skill/conversations` — speichert in `zuki:skill:{name}:conversations:{tenant}`
+  - `GET  /api/skill/conversations?skill=<name>&tenant=<tenant>&limit=<n>` — abrufen
+  - Redis-Key-Helfer: `_skill_key(skill_name, tenant)`
+- **`tools/cloud_memory.py`** neue Methoden:
+  - `save_skill_conversation(skill_name, text) → str` — fire-and-forget im Hintergrund
+  - `get_skill_conversations(skill_name, limit) → list[dict]` — synchroner Abruf
+  - `_post_skill(payload)` — HTTP-Backend für Skill-Endpunkt
+  - `_skill_conversations_url()` — leitet URL aus CLOUD_MEMORY_URL ab
+- **`core/ui_renderer.py`**: `print_router_decision(skills, user_input)` als `@abstractmethod`
+- **`core/ui.py`**: `print_router_decision()` in `TerminalRenderer` + Forwarding-Funktion
+- **15. Subsystem "router"** in `tools/system_test.py`:
+  - OK: Router aktiv + Entscheidungs-Statistik
+  - WARN: SIM-Modus (kein API-Key) → Router deaktiviert
+
+### Geänderte Files
+
+- `core/router_agent.py`   — **neu**
+- `core/main.py`           — RouterAgent-Import + Initialisierung, zweistufiger Dispatch,
+                             `cloud.save_skill_conversation()` im Skill-Pfad,
+                             `router_agent=router` im SystemTest
+- `core/ui_renderer.py`    — `print_router_decision()` als abstractmethod
+- `core/ui.py`             — `print_router_decision()` in TerminalRenderer + Forwarding
+- `skills/base.py`         — `description: str = ""` Feld
+- `skills/registry.py`     — `get_all_descriptions() → list[dict]`
+- `skills/professor/professor.py` — `description` gesetzt
+- `tools/cloud_memory.py`  — `save_skill_conversation()`, `get_skill_conversations()`,
+                             `_post_skill()`, `_skill_conversations_url()`
+- `tools/system_test.py`   — `router_agent` Parameter + `_test_router()`
+- `zuki_cloud/api/index.py` — `POST/GET /api/skill/conversations`, `_skill_key()`,
+                              `MAX_SKILL_CONV_ENTRIES`
+
+### Neue Status-APIs
+
+- `RouterAgent.route(user_input, skills_info) → list[str]`
+- `RouterAgent.last_decision() → dict | None`
+- `RouterAgent.decision_count() → int`
+- `RouterAgent.self_test() → dict`
+- `CloudMemory.save_skill_conversation(skill_name, text) → str`
+- `CloudMemory.get_skill_conversations(skill_name, limit) → list[dict]`
+- `skill_registry.get_all_descriptions() → list[dict]`
+
+### Notizen
+
+- **Zweistufiges Routing**: Exakter Trigger (0 Token) hat immer Vorrang vor Router-Pfad.
+  Router läuft nur wenn kein Trigger passt — Token-Effizienz gewahrt.
+- **SIM-Modus-sicher**: Router gibt im SIM-Modus sofort `[]` zurück — kein API-Call,
+  kein Token-Verbrauch, sauberer Fallback auf General-LLM-Chat.
+- **Decision-Log**: `temp/router_decisions.jsonl` für späteres Tuning der Skill-Prompts
+  und Trigger-Coverage. Noch kein UI — kommt in späterem Bundle.
+- **Skill-Description**: Neue Skills MÜSSEN `description` setzen um für den Router sichtbar
+  zu sein. Skills ohne description (z. B. PingSkill) werden ignoriert.
+- **Multi-Skill-Responses**: Router kann mehrere Skills zurückgeben; Antworten werden
+  mit `\n\n` verbunden. In der Praxis wird meist 0 oder 1 Skill zurückgegeben.
+- **ARCHITECTURE.md**: Entscheidung 14 ergänzt (Zweistufiges Routing).
+
+---
+
 ## Bundle 5 — Tenant-Pattern (2026-05-11)
 
 **Status: ✅ Abgeschlossen**

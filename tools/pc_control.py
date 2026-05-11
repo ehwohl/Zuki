@@ -1,201 +1,164 @@
 """
-pc_control.py — PC-Steuerungs-Stub für Zuki
-─────────────────────────────────────────────
-Alle Methoden werfen NotImplementedError — das ist der Design-Vertrag:
-Wer PC-Control nutzen will, muss die Methoden überschreiben oder
-dieses Modul durch eine echte Implementierung ersetzen.
+pc_control.py — Plattform-agnostische PC-Steuerung
+────────────────────────────────────────────────────
+Delegiert alle Aufrufe an das plattform-spezifische WindowBackend.
+Das Backend wird lazy via get_window_backend() erstellt.
+
+Plattform-Backends:
+  win32  → tools/window_control/windows_backend.py  (WindowsWindowBackend)
+  linux  → tools/window_control/linux_backend.py    (LinuxWindowBackend — Stub)
 
 Status-API:
-  PCControl.available()  →  False  (Stub ist nie "verfügbar")
+  PCControl.available()   → bool (True wenn Backend bereit ist)
+  PCControl.get_status()  → dict
 
-Log-Marker: [PC-CONTROL-STUB]
+Clipboard-Operationen (pyperclip, plattform-neutral) sind weiterhin hier.
 
-LIVE UPGRADE — Implementierungshinweise je Methode stehen
-als Kommentar direkt über dem jeweiligen raise NotImplementedError.
+Log-Marker: [PC-CONTROL]
 """
 
-import subprocess
-import sys
 from core.logger import get_logger
+from tools.window_control import get_window_backend
+from tools.window_control.backend import WindowBackend
 
 log = get_logger("pc_control")
+
+_backend: WindowBackend | None = None
+
+
+def _get_backend() -> WindowBackend:
+    global _backend
+    if _backend is None:
+        _backend = get_window_backend()
+    return _backend
 
 
 class PCControl:
     """
-    Stub-Klasse für PC-Steuerungs-Funktionen.
-    Alle Methoden sind voll dokumentiert aber nicht implementiert.
+    Plattform-agnostische PC-Steuerung.
+    Delegiert Fenster-/App-/System-Aktionen an das passende WindowBackend.
     """
 
     # ── Status-API ────────────────────────────────────────────────────────────
 
     @staticmethod
     def available() -> bool:
-        """Gibt True zurück sobald echte Implementierung vorhanden ist."""
-        return False
+        try:
+            return _get_backend().available()
+        except Exception:
+            return False
+
+    @staticmethod
+    def get_status() -> dict:
+        try:
+            return _get_backend().get_status()
+        except Exception as e:
+            return {"backend": "unbekannt", "available": False, "error": str(e)}
+
+    # ── Fenster-Verwaltung ────────────────────────────────────────────────────
+
+    def list_windows(self) -> list[str]:
+        """Liste aller sichtbaren Fenster-Titel."""
+        return _get_backend().list_windows()
+
+    def focus_window(self, title_fragment: str) -> bool:
+        """Bringt das Fenster mit passendem Titel in den Vordergrund."""
+        return _get_backend().focus_window(title_fragment)
+
+    def minimize_window(self, title_fragment: str) -> bool:
+        return _get_backend().minimize_window(title_fragment)
+
+    def maximize_window(self, title_fragment: str) -> bool:
+        return _get_backend().maximize_window(title_fragment)
+
+    def close_window(self, title_fragment: str) -> bool:
+        return _get_backend().close_window(title_fragment)
 
     # ── Anwendungen ───────────────────────────────────────────────────────────
 
     def open_app(self, name: str) -> None:
-        """
-        Öffnet eine Anwendung per Name.
-
-        LIVE UPGRADE (Windows):
-          subprocess.Popen(["start", name], shell=True)
-
-        LIVE UPGRADE (macOS):
-          subprocess.Popen(["open", "-a", name])
-
-        LIVE UPGRADE (Linux):
-          subprocess.Popen([name])
-        """
-        log.info(f"[PC-CONTROL-STUB] open_app({name!r}) — nicht implementiert")
-        raise NotImplementedError(
-            f"[PC-CONTROL-STUB] open_app('{name}') ist noch nicht implementiert.\n"
-            f"  Bitte tools/pc_control.py → PCControl.open_app() befüllen."
-        )
+        """Öffnet eine Anwendung per Name oder Pfad."""
+        _get_backend().open_app(name)
 
     def close_app(self, name: str) -> None:
-        """
-        Schließt einen laufenden Prozess per Name.
-
-        LIVE UPGRADE (Windows):
-          subprocess.run(["taskkill", "/f", "/im", name + ".exe"])
-
-        LIVE UPGRADE (macOS / Linux):
-          subprocess.run(["pkill", "-f", name])
-        """
-        log.info(f"[PC-CONTROL-STUB] close_app({name!r}) — nicht implementiert")
-        raise NotImplementedError(
-            f"[PC-CONTROL-STUB] close_app('{name}') ist noch nicht implementiert."
-        )
+        """Beendet einen laufenden Prozess per Name."""
+        _get_backend().close_app(name)
 
     # ── System ────────────────────────────────────────────────────────────────
 
     def shutdown_pc(self, delay_seconds: int = 0) -> None:
-        """
-        Fährt den PC herunter.
-
-        LIVE UPGRADE (Windows):
-          subprocess.run(["shutdown", "/s", "/t", str(delay_seconds)])
-
-        LIVE UPGRADE (macOS / Linux):
-          subprocess.run(["shutdown", "-h", f"+{delay_seconds // 60}"])
-        """
-        log.info(f"[PC-CONTROL-STUB] shutdown_pc(delay={delay_seconds}) — nicht implementiert")
-        raise NotImplementedError(
-            "[PC-CONTROL-STUB] shutdown_pc() ist noch nicht implementiert."
-        )
+        _get_backend().shutdown_pc(delay_seconds)
 
     def restart_pc(self, delay_seconds: int = 0) -> None:
-        """
-        Startet den PC neu.
-
-        LIVE UPGRADE (Windows):
-          subprocess.run(["shutdown", "/r", "/t", str(delay_seconds)])
-
-        LIVE UPGRADE (macOS / Linux):
-          subprocess.run(["shutdown", "-r", f"+{delay_seconds // 60}"])
-        """
-        log.info(f"[PC-CONTROL-STUB] restart_pc(delay={delay_seconds}) — nicht implementiert")
-        raise NotImplementedError(
-            "[PC-CONTROL-STUB] restart_pc() ist noch nicht implementiert."
-        )
+        _get_backend().restart_pc(delay_seconds)
 
     def lock_screen(self) -> None:
-        """
-        Sperrt den Bildschirm.
+        _get_backend().lock_screen()
 
-        LIVE UPGRADE (Windows):
-          import ctypes; ctypes.windll.user32.LockWorkStation()
-
-        LIVE UPGRADE (macOS):
-          subprocess.run(["pmset", "displaysleepnow"])
-
-        LIVE UPGRADE (Linux / X11):
-          subprocess.run(["xdg-screensaver", "lock"])
-        """
-        log.info("[PC-CONTROL-STUB] lock_screen() — nicht implementiert")
-        raise NotImplementedError(
-            "[PC-CONTROL-STUB] lock_screen() ist noch nicht implementiert."
-        )
-
-    # ── Lautstärke ────────────────────────────────────────────────────────────
-
-    def set_volume(self, level: int) -> None:
-        """
-        Setzt die System-Lautstärke (0–100).
-
-        LIVE UPGRADE (Windows — pycaw):
-          from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-          from ctypes import cast, POINTER
-          from comtypes import CLSCTX_ALL
-          devices = AudioUtilities.GetSpeakers()
-          interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-          volume = cast(interface, POINTER(IAudioEndpointVolume))
-          volume.SetMasterVolumeLevelScalar(level / 100.0, None)
-
-        LIVE UPGRADE (macOS):
-          subprocess.run(["osascript", "-e", f"set volume output volume {level}"])
-        """
-        log.info(f"[PC-CONTROL-STUB] set_volume({level}) — nicht implementiert")
-        raise NotImplementedError(
-            f"[PC-CONTROL-STUB] set_volume({level}) ist noch nicht implementiert."
-        )
-
-    def mute(self) -> None:
-        """
-        Schaltet den Ton stumm.
-
-        LIVE UPGRADE: Siehe set_volume — SetMasterMute(True, None) (Windows/pycaw).
-        """
-        log.info("[PC-CONTROL-STUB] mute() — nicht implementiert")
-        raise NotImplementedError(
-            "[PC-CONTROL-STUB] mute() ist noch nicht implementiert."
-        )
-
-    # ── Clipboard ─────────────────────────────────────────────────────────────
+    # ── Clipboard (plattform-neutral via pyperclip) ───────────────────────────
 
     def get_clipboard(self) -> str:
-        """
-        Gibt den aktuellen Clipboard-Inhalt zurück.
-
-        LIVE UPGRADE:
-          import pyperclip; return pyperclip.paste()
-        """
-        log.info("[PC-CONTROL-STUB] get_clipboard() — nicht implementiert")
-        raise NotImplementedError(
-            "[PC-CONTROL-STUB] get_clipboard() ist noch nicht implementiert."
-        )
+        """Gibt den aktuellen Clipboard-Inhalt zurück."""
+        try:
+            import pyperclip  # noqa: PLC0415
+            return pyperclip.paste()
+        except ImportError:
+            log.info("[PC-CONTROL-STUB] get_clipboard — pyperclip nicht installiert")
+            raise NotImplementedError(
+                "[PC-CONTROL] get_clipboard() benötigt pyperclip: pip install pyperclip"
+            )
 
     def set_clipboard(self, text: str) -> None:
-        """
-        Schreibt Text in die Zwischenablage.
-
-        LIVE UPGRADE:
-          import pyperclip; pyperclip.copy(text)
-        """
-        log.info(f"[PC-CONTROL-STUB] set_clipboard({text[:30]!r}…) — nicht implementiert")
-        raise NotImplementedError(
-            "[PC-CONTROL-STUB] set_clipboard() ist noch nicht implementiert."
-        )
-
-    # ── Dateisystem (sicher) ──────────────────────────────────────────────────
+        """Schreibt Text in die Zwischenablage."""
+        try:
+            import pyperclip  # noqa: PLC0415
+            pyperclip.copy(text)
+            log.info(f"[PC-CONTROL] Clipboard gesetzt: '{text[:30]}…'")
+        except ImportError:
+            log.info("[PC-CONTROL-STUB] set_clipboard — pyperclip nicht installiert")
+            raise NotImplementedError(
+                "[PC-CONTROL] set_clipboard() benötigt pyperclip: pip install pyperclip"
+            )
 
     def open_file(self, path: str) -> None:
-        """
-        Öffnet eine Datei mit dem Standard-Programm.
+        """Öffnet eine Datei mit dem Standard-Programm."""
+        import sys
+        import subprocess
+        if sys.platform == "win32":
+            import os
+            os.startfile(path)
+        elif sys.platform.startswith("linux"):
+            subprocess.Popen(["xdg-open", path])
+        else:
+            raise NotImplementedError(f"[PC-CONTROL] open_file() — Platform '{sys.platform}' unbekannt")
+        log.info(f"[PC-CONTROL] open_file: '{path}'")
 
-        LIVE UPGRADE (Windows):
-          os.startfile(path)
+    # ── Lautstärke (Windows: pycaw — Stub bei Linux) ──────────────────────────
 
-        LIVE UPGRADE (macOS):
-          subprocess.Popen(["open", path])
+    def set_volume(self, level: int) -> None:
+        """Setzt die System-Lautstärke (0–100). Windows: pycaw, Linux: amixer."""
+        import sys
+        if sys.platform == "win32":
+            try:
+                from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+                from ctypes import cast, POINTER
+                from comtypes import CLSCTX_ALL
+                devices = AudioUtilities.GetSpeakers()
+                interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+                volume = cast(interface, POINTER(IAudioEndpointVolume))
+                volume.SetMasterVolumeLevelScalar(level / 100.0, None)
+                log.info(f"[PC-CONTROL] Lautstärke gesetzt: {level}%")
+            except ImportError:
+                raise NotImplementedError(
+                    "[PC-CONTROL] set_volume() benötigt pycaw: pip install pycaw"
+                )
+        elif sys.platform.startswith("linux"):
+            import subprocess
+            subprocess.run(["amixer", "sset", "Master", f"{level}%"], capture_output=True)
+            log.info(f"[PC-CONTROL] Lautstärke gesetzt (amixer): {level}%")
+        else:
+            raise NotImplementedError(f"[PC-CONTROL] set_volume() — Platform '{sys.platform}' unbekannt")
 
-        LIVE UPGRADE (Linux):
-          subprocess.Popen(["xdg-open", path])
-        """
-        log.info(f"[PC-CONTROL-STUB] open_file({path!r}) — nicht implementiert")
-        raise NotImplementedError(
-            f"[PC-CONTROL-STUB] open_file('{path}') ist noch nicht implementiert."
-        )
+    def mute(self) -> None:
+        """Schaltet den Ton stumm."""
+        self.set_volume(0)

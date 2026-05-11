@@ -186,8 +186,9 @@ def build_live_prompt(topic: str, level_raw: str, profile_summary: str = "") -> 
 class ProfessorSkill(Skill):
     """Der Professor — erklärt Themen level-adaptiert via 'explain [Thema]'."""
 
-    name     = "professor"
-    triggers = {"explain", "erklaer", "erklaere", "erkläre"}
+    name        = "professor"
+    triggers    = {"explain", "erklaer", "erklaere", "erkläre"}
+    description = "Erklärt Themen, Konzepte und Begriffe strukturiert und level-adaptiert"
 
     def handle(self, context: dict) -> str | None:
         user_input = context.get("user_input", "")

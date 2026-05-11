@@ -197,6 +197,7 @@ class TerminalRenderer(UIRenderer):
         _cmd("vision",          "Screenshot analysieren")
         _cmd("tenant [list|switch|create|delete]", "Workspace wechseln")
         _cmd("system backup",   "Projekt-Snapshot erstellen")
+        _cmd("cleanup [vision|chats|old|cloud|all]", "Daten bereinigen")
         _cmd("hör zu",          "Spracheingabe (5 Sek.)")
         _cmd("exit",            "Beenden")
 
@@ -270,6 +271,39 @@ class TerminalRenderer(UIRenderer):
 
     # ── System-Test ───────────────────────────────────────────────────────────
 
+    def print_cleanup_result(self, results: dict) -> None:
+        """Zeigt Cleanup-Ergebnisse kompakt an — eine Zeile pro Operation."""
+        print(f"\n  {BOLD}Cleanup-Ergebnis{R}")
+        print(f"  {GRAY}{'─' * W}{R}")
+        for scope, info in results.items():
+            err = info.get("error", "")
+            if err:
+                badge = f"{RED}[FAIL]{R}"
+                detail = err
+            elif info.get("deleted", 0) == 0 and not info.get("protected"):
+                badge = f"{GRAY}[ -- ]{R}"
+                detail = "nichts zu löschen"
+            else:
+                badge = f"{GREEN}[ OK ]{R}"
+                parts = [f"{info['deleted']} gelöscht"]
+                if info.get("protected"):
+                    parts.append(f"{info['protected']} geschützt")
+                if info.get("kept") is not None:
+                    parts.append(f"{info['kept']} behalten")
+                if info.get("total") is not None:
+                    parts.append(f"{info['total']} verbleibend")
+                detail = "  ·  ".join(parts)
+            scope_col = f"{CYAN}{scope:<14}{R}"
+            print(f"   {badge}  {scope_col}  {detail}")
+        print(f"  {GRAY}{'─' * W}{R}\n")
+
+    def print_router_decision(self, skills: list, user_input: str) -> None:
+        """Zeigt welche Skills der Router-Agent für diese Anfrage gewählt hat."""
+        if not skills:
+            return
+        label = ", ".join(f"{CYAN}{s}{R}" for s in skills)
+        print(f"  {DIM}[Router] -> {label}{R}")
+
     def print_system_test(self, results: list) -> None:
         """Gibt System-Diagnose-Ergebnisse als farbige Tabelle aus."""
         SEP_LINE = f"  {GRAY}{'─' * W}{R}"
@@ -321,3 +355,5 @@ def voice_echo(text: str):          _default.voice_echo(text)
 def print_broker_status(*a, **kw):  _default.print_broker_status(*a, **kw)
 def print_broker_deactivated():     _default.print_broker_deactivated()
 def print_system_test(results):     _default.print_system_test(results)
+def print_router_decision(skills, user_input): _default.print_router_decision(skills, user_input)
+def print_cleanup_result(results):             _default.print_cleanup_result(results)

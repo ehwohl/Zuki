@@ -68,24 +68,24 @@
 - Einmalige Migration: user_profile.txt → user_profile_self.txt + Cloud-Key-Migration
 - 14. Subsystem "tenant" in system test
 
-### Bundle 6 — Router-Agent ⬜
+### Bundle 6 — Router-Agent ✅
 - Multi-Skill-Orchestrierung (LLM entscheidet welche Skills)
 - Cloud-Listen pro Skill: `zuki:skill:{name}:conversations`
 - Router-Decision-Log für Tuning
 - Output zeigt: Endergebnis + "verwendete Skills: X, Y"
 
-### Bundle 7 — Cleanup-Befehle ⬜
+### Bundle 7 — Cleanup-Befehle ✅
 - Selektive Lösch-Befehle (`cleanup vision`, `cleanup chats`, `cleanup old`)
 - Geschützte Daten (Bio, Code, .env, "system": true Flag)
 - UI-Variante (Liste mit Checkboxen) später in Bundle 16
 - Cloud-Cleanup via API-Endpunkt
 
-### Bundle 8 — Plattform-Agnostik 🔒⬜
-- TTS-Backend-Pattern: WindowsTTS (pyttsx3) / LinuxTTS (Piper)
-- Window-Control-Backend: WindowsWindowBackend / LinuxWindowBackend
-  (Win32 / xdotool+wmctrl)
-- Audio-In-Pfade für Linux validieren
+### Bundle 8 — Plattform-Agnostik 🔒✅
+- TTS-Backend-Pattern: WindowsTTS (pyttsx3) / LinuxTTS (Piper Stub)
+- Window-Control-Backend: WindowsWindowBackend (Win32, echt implementiert) / LinuxWindowBackend (Stub)
+- Audio-In-Pfade für Linux validiert (sounddevice _SD_AVAILABLE Flag + plattformbewusste Hints)
 - Linux-Ziel-Distro: Pop!_OS 22.04 oder Ubuntu 24.04 LTS
+- 17. system-test-Subsystem "platform": TTS + WinCtrl + Audio-In Status
 - **Cross-cutting: berührt TTS, PC-Control, Audio. Daher 🔒.**
 
 ---
@@ -240,8 +240,8 @@ Konfliktauflösung zu komplex für aktuellen Use-Case (ein Rechner).
 
 ## Aktueller Fokus
 
-✅ **Bundle 4.5** abgeschlossen (GitHub-Backup, Off-Site Code-Backup via privatem Repo)
-⬜ **Nächste Schritte:** Bundle 5 (Tenant-Pattern) — `.env` mit GITHUB_REPO_URL + GITHUB_TOKEN befüllen, dann `system github init`
+✅ **Bundle 8** abgeschlossen (Plattform-Agnostik — TTS + Window-Control-Backend-Pattern, Audio-In Validierung)
+⬜ **Nächste Schritte:** Bundle 8.5 (Web-Scraping-Layer) — tools/scraper.py mit User-Agent-Rotation, Rate-Limiting, Adapter pro Quelle
 
 ---
 

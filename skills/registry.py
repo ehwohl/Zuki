@@ -94,3 +94,19 @@ def skill_count() -> int:
 def list_names() -> list[str]:
     """Namen aller registrierten Skills."""
     return sorted({s.name for s in _registry.values()})
+
+
+def get_all_descriptions() -> list[dict]:
+    """Skills mit Beschreibung — für den Router-Agent.
+    Gibt nur Skills zurück die eine description haben (keine Test-Stubs)."""
+    seen = set()
+    result = []
+    for skill in _registry.values():
+        if skill.name not in seen and skill.description:
+            seen.add(skill.name)
+            result.append({
+                "name":        skill.name,
+                "description": skill.description,
+                "triggers":    sorted(skill.triggers),
+            })
+    return result

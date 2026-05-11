@@ -23,7 +23,10 @@ D:\Zuki\
 │   ├── ui_factory.py            ← get_renderer() Singleton, liest ZUKI_UI ENV
 │   ├── vision_manager.py        ← mss Screenshot + Cleanup
 │   ├── speech_to_text/whisper_engine.py  ← STT
-│   ├── text_to_speech/tts_engine.py      ← TTS mit Spacebar-Mute
+│   ├── text_to_speech/tts_backend.py     ← TTSBackend ABC
+│   ├── text_to_speech/windows_tts.py    ← WindowsTTS (pyttsx3/SAPI5)
+│   ├── text_to_speech/linux_tts.py      ← LinuxTTS (Piper-Stub)
+│   ├── text_to_speech/tts_engine.py     ← Factory + öffentliche TTS-API
 │   ├── news_manager.py          ← Broker-News-Inbox
 │   ├── calendar_manager.py      ← Termine
 │   └── logger.py                ← zentrale Log-Setup
@@ -46,7 +49,12 @@ D:\Zuki\
 │   ├── instance_guard.py        ← Single-Instance-Lock via Socket
 │   ├── session_state.py         ← Crash-Detection + Session-Recovery
 │   ├── system_test.py           ← Selbst-Diagnose aller 13 Subsysteme
-│   └── pc_control.py            ← PCControl Stub (10 Methoden, alle NotImplementedError)
+│   ├── pc_control.py            ← PCControl delegiert ans WindowBackend
+│   └── window_control/          ← Window-Backend-Paket
+│       ├── backend.py           ← WindowBackend ABC
+│       ├── windows_backend.py   ← WindowsWindowBackend (Win32/ctypes)
+│       ├── linux_backend.py     ← LinuxWindowBackend (Stub)
+│       └── factory.py           ← get_window_backend() Factory
 │
 ├── zuki_cloud/                  ← Vercel Serverless API
 │   ├── api/index.py             ← Flask + Redis Endpoint
@@ -264,6 +272,72 @@ falls der neue Key leer ist. Kommentar markiert: *TODO: nach 2026-05-25 entferne
 
 **Audit-Log:** Jeder Cloud-Save erzeugt einen Eintrag in `zuki:audit:{tenant}`.
 Max. 500 Einträge, kein UI dafür im MVP — Foundation für spätere Compliance-Ansicht.
+
+### 15. Plattform-Backend-Pattern für TTS + Window-Control (Bundle 8)
+
+**Was:** Plattform-spezifischer Code ist hinter ABC-Backends versteckt.
+Factories wählen per `sys.platform` das richtige Backend:
+
+```
+core/text_to_speech/
+  tts_backend.py      ← TTSBackend ABC
+  windows_tts.py      ← WindowsTTS  (pyttsx3, voll implementiert)
+  linux_tts.py        ← LinuxTTS    (Piper-Stub, bereit für Live-Upgrade)
+  tts_engine.py       ← Factory + öffentliche API (delegiert ans Backend)
+
+tools/window_control/
+  backend.py          ← WindowBackend ABC
+  windows_backend.py  ← WindowsWindowBackend (Win32/ctypes, voll implementiert)
+  linux_backend.py    ← LinuxWindowBackend (xdotool+wmctrl-Stub)
+  factory.py          ← get_window_backend() Factory
+tools/pc_control.py   ← delegiert ans WindowBackend (war Monolith-Stub)
+```
+
+**Warum:** Wenn Zuki auf Linux migriert, müssen nur `LinuxTTS` (Piper befüllen)
+und `LinuxWindowBackend` (xdotool+wmctrl befüllen) implementiert werden.
+Core, Skills, History, Cloud — nichts davon muss angefasst werden.
+
+**Konvention für neue Backends:**
+1. Klasse erstellen die von `TTSBackend` oder `WindowBackend` erbt, alle `@abstractmethod`s implementieren.
+2. In der Factory-Funktion unter dem passenden `sys.platform`-Zweig eintragen.
+3. `get_status() → dict` muss immer `backend`, `platform`, `ready`/`available` liefern.
+
+**Stub-Konvention:** Linux-Stubs folgen derselben Konvention wie `pc_control.py` (Bundle 3):
+`log.info("[...-STUB] method() aufgerufen")` + `raise NotImplementedError(...)`.
+Stubs sind nie "verfügbar" (`available() = False`, `ready = False`).
+
+**Audio-In:** `sounddevice` ist plattform-neutral (portiert PortAudio). Auf Linux
+muss `portaudio19-dev` via apt installiert sein. `whisper_engine.py` prüft dies
+über `_SD_AVAILABLE` Flag und gibt plattformbewusste Fix-Hints wenn sounddevice fehlt.
+
+### 14. Zweistufiges Skill-Routing — Fast-Path + LLM-Router (Bundle 6)
+
+**Was:** Der Skill-Dispatch in `core/main.py` läuft zweistufig:
+1. **Fast-Path:** `skill_registry.get_skill_for(cmd)` — exakter Match auf erstem Wort.
+   Kosten: 0 Token. Latenz: microseconds.
+2. **Router-Pfad:** `RouterAgent.route(user_input, skills_info)` — LLM-Call wenn kein
+   Trigger passt. Kosten: 1 kleiner LLM-Call (max. 80 Tokens Output). Latenz: ~1-2s.
+
+**Warum zweistufig:**
+- Exakte Trigger-Matches sind deterministisch und kostenlos — kein Grund sie durchs LLM zu jagen.
+- Router deckt semantische Anfragen ab: "Erkläre mir X" trifft `explain`-Trigger, aber
+  "Was ist X?" trifft keinen Trigger und kommt über den Router.
+- SIM-Modus-sicher: Im SIM-Modus gibt der Router sofort `[]` zurück — kein API-Call.
+
+**Skill-Sichtbarkeit:**
+- Nur Skills mit `description != ""` sind für den Router sichtbar.
+- Test-Stubs (PingSkill) haben keine description → werden ignoriert.
+- Neue Skills müssen `description` setzen um für Nutzer erreichbar zu sein.
+
+**Cloud-Persistenz:**
+- Skill-Antworten werden in `zuki:skill:{name}:conversations:{tenant}` gespeichert.
+- Separate Endpunkte `POST/GET /api/skill/conversations` in der Cloud-API.
+- Ermöglicht spätere Analyse pro Skill (häufig genutzt? welche Antworten waren gut?).
+
+**Konsequenz für neue Skills:**
+- `description` setzen (1 Satz, klar formuliert)
+- Trigger für häufige Wörter definieren (Schnellpfad)
+- `handle()` gibt `None` zurück wenn Skill nicht zuständig ist (Router-Robustheit)
 
 ---
 

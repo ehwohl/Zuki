@@ -6,11 +6,14 @@ GET  /api/memory             → Letzte Einträge abrufen (JSON)
 GET  /api/memory/view        → Erinnerungen im Browser anzeigen (HTML)
 GET  /api/memory/health      → Verbindungstest
 POST /api/memory/migrate     → Legacy-Key → Tenant-Key migrieren (einmalig)
+POST /api/skill/conversations → Skill-Konversation speichern (Bundle 6)
+GET  /api/skill/conversations → Skill-Konversationen abrufen (Bundle 6)
 
 Redis-Keys (ab Bundle 5):
-  zuki:memories:{tenant}   ← Gedächtnis-Einträge pro Tenant
-  zuki:audit:{tenant}      ← Audit-Log pro Tenant
-  zuki:memories            ← Legacy-Key (pre-Bundle-5); Legacy-Fallback bis 2026-05-25
+  zuki:memories:{tenant}                     ← Gedächtnis-Einträge pro Tenant
+  zuki:audit:{tenant}                        ← Audit-Log pro Tenant
+  zuki:memories                              ← Legacy-Key (pre-Bundle-5); Fallback bis 2026-05-25
+  zuki:skill:{name}:conversations:{tenant}   ← Skill-Konversationen (ab Bundle 6)
 
 Browser-URL:
   https://zuki-cloud.vercel.app/api/memory/view?token=DEIN_TOKEN&limit=50&tenant=self
@@ -28,8 +31,9 @@ from flask import Flask, request, jsonify, Response
 
 app = Flask(__name__)
 
-MAX_ENTRIES       = 200
-MAX_AUDIT_ENTRIES = 500
+MAX_ENTRIES            = 200
+MAX_AUDIT_ENTRIES      = 500
+MAX_SKILL_CONV_ENTRIES = 100
 
 # Legacy-Key vor Bundle-5-Migration
 LEGACY_MEM_KEY = "zuki:memories"
@@ -58,6 +62,10 @@ def _mem_key(tenant: str = "self") -> str:
 
 def _audit_key(tenant: str = "self") -> str:
     return f"zuki:audit:{tenant}"
+
+
+def _skill_key(skill_name: str, tenant: str = "self") -> str:
+    return f"zuki:skill:{skill_name}:conversations:{tenant}"
 
 
 # ── POST /api/memory ───────────────────────────────────────────────────────────
@@ -365,6 +373,170 @@ def view_memories():
 </html>"""
 
     return Response(html, mimetype="text/html")
+
+
+# ── POST /api/skill/conversations ─────────────────────────────────────────────
+
+@app.route("/api/skill/conversations", methods=["POST"])
+def save_skill_conversation():
+    """Skill-Konversation speichern. Redis-Key: zuki:skill:{name}:conversations:{tenant}"""
+    if not is_authorized(request):
+        return jsonify({"error": "Nicht autorisiert"}), 401
+
+    body       = request.get_json(silent=True) or {}
+    skill_name = (body.get("skill_name") or "").strip()
+    text       = (body.get("text") or "").strip()
+    tenant     = (body.get("tenant") or "self").strip()
+
+    if not skill_name:
+        return jsonify({"error": "'skill_name' fehlt"}), 400
+    if not text:
+        return jsonify({"error": "'text' fehlt oder leer"}), 400
+
+    entry = {
+        "skill_name": skill_name,
+        "text":       text[:8000],
+        "source":     body.get("source", "skill"),
+        "session_id": body.get("session_id", "unknown"),
+        "tenant":     tenant,
+        "timestamp":  body.get("timestamp", utc_now()),
+        "saved_at":   utc_now(),
+        "v":          1,
+    }
+
+    try:
+        r   = get_redis()
+        key = _skill_key(skill_name, tenant)
+        r.lpush(key, json.dumps(entry, ensure_ascii=False))
+        r.ltrim(key, 0, MAX_SKILL_CONV_ENTRIES - 1)
+        total = r.llen(key)
+    except Exception as e:
+        return jsonify({"error": f"Redis-Fehler: {e}"}), 500
+
+    return jsonify({"status": "gespeichert", "skill": skill_name, "tenant": tenant, "total": total})
+
+
+# ── GET /api/skill/conversations ───────────────────────────────────────────────
+
+@app.route("/api/skill/conversations", methods=["GET"])
+def get_skill_conversations():
+    """Skill-Konversationen abrufen. Parameter: skill=<name>&tenant=<tenant>&limit=<n>"""
+    if not is_authorized(request):
+        return jsonify({"error": "Nicht autorisiert"}), 401
+
+    skill_name = (request.args.get("skill") or "").strip()
+    tenant     = (request.args.get("tenant") or "self").strip()
+    limit      = min(int(request.args.get("limit", 20)), 100)
+
+    if not skill_name:
+        return jsonify({"error": "'skill' Parameter fehlt"}), 400
+
+    try:
+        r       = get_redis()
+        key     = _skill_key(skill_name, tenant)
+        raw     = r.lrange(key, 0, limit - 1)
+        total   = r.llen(key)
+    except Exception as e:
+        return jsonify({"error": f"Redis-Fehler: {e}"}), 500
+
+    conversations = []
+    for item in raw:
+        try:
+            conversations.append(json.loads(item))
+        except Exception:
+            conversations.append({"raw": item})
+
+    return jsonify({
+        "skill":         skill_name,
+        "tenant":        tenant,
+        "conversations": conversations,
+        "total":         total,
+        "returned":      len(conversations),
+    })
+
+
+# ── POST /api/memory/cleanup ─────────────────────────────────────────────────
+
+@app.route("/api/memory/cleanup", methods=["POST"])
+def cleanup_memories():
+    """
+    Löscht Cloud-Memories für einen Tenant.
+    Geschützt: source="bio", "system": True in Einträgen.
+    Body: {"tenant": str, "scope": "all" | "source:<name>"}
+    Response: {deleted, protected, total, tenant}
+    """
+    if not is_authorized(request):
+        return jsonify({"error": "Nicht autorisiert"}), 401
+
+    body   = request.get_json(silent=True) or {}
+    tenant = (body.get("tenant") or "self").strip()
+    scope  = (body.get("scope")  or "all").strip()
+
+    try:
+        r       = get_redis()
+        mem_key = _mem_key(tenant)
+        raw     = r.lrange(mem_key, 0, -1)
+    except Exception as e:
+        return jsonify({"error": f"Redis-Fehler: {e}"}), 500
+
+    kept      = []
+    deleted   = 0
+    protected = 0
+
+    for item in raw:
+        try:
+            entry = json.loads(item)
+        except Exception:
+            kept.append(item)
+            continue
+
+        is_bio    = entry.get("source") == "bio"
+        is_system = bool(entry.get("system"))
+
+        if is_bio or is_system:
+            kept.append(item)
+            protected += 1
+            continue
+
+        if scope != "all":
+            # scope="source:<name>" — nur Einträge mit diesem source löschen
+            target_source = scope.removeprefix("source:").strip()
+            if entry.get("source") != target_source:
+                kept.append(item)
+                continue
+
+        deleted += 1
+
+    try:
+        r.delete(mem_key)
+        if kept:
+            for item in reversed(kept):
+                r.lpush(mem_key, item)
+            r.ltrim(mem_key, 0, MAX_ENTRIES - 1)
+
+        total = r.llen(mem_key)
+
+        audit_entry = {
+            "action":    "cleanup",
+            "timestamp": utc_now(),
+            "scope":     scope,
+            "deleted":   deleted,
+            "protected": protected,
+        }
+        r.lpush(_audit_key(tenant), json.dumps(audit_entry, ensure_ascii=False))
+        r.ltrim(_audit_key(tenant), 0, MAX_AUDIT_ENTRIES - 1)
+
+    except Exception as e:
+        return jsonify({"error": f"Redis-Schreib-Fehler: {e}"}), 500
+
+    return jsonify({
+        "status":    "ok",
+        "deleted":   deleted,
+        "protected": protected,
+        "total":     total,
+        "tenant":    tenant,
+        "scope":     scope,
+    })
 
 
 # ── GET /api/memory/health ─────────────────────────────────────────────────────

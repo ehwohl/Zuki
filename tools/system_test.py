@@ -58,6 +58,7 @@ class SystemTest:
         auto_backup=None,
         github_backup=None,
         tenant_mgr=None,
+        router_agent=None,
     ):
         self._cloud      = cloud
         self._api_mgr    = api_mgr
@@ -70,6 +71,7 @@ class SystemTest:
         self._backup     = auto_backup
         self._github     = github_backup
         self._tenant_mgr = tenant_mgr
+        self._router     = router_agent
 
         self._tests = {
             "cloud":      self._test_cloud,
@@ -86,6 +88,9 @@ class SystemTest:
             "env":        self._test_env,
             "github":     self._test_github,
             "tenant":     self._test_tenant,
+            "router":     self._test_router,
+            "cleanup":    self._test_cleanup,
+            "platform":   self._test_platform,
         }
 
     # ── Öffentliche API ───────────────────────────────────────────────────────
@@ -437,4 +442,111 @@ class SystemTest:
             status   = result["status"],
             summary  = result["summary"],
             fix_hint = result.get("fix_hint", ""),
+        )
+
+    # ── Cleanup ───────────────────────────────────────────────────────────────
+
+    def _test_cleanup(self) -> TestResult:
+        from tools.cleanup_manager import CleanupManager
+        cleaner = CleanupManager()
+        info    = cleaner.self_test()
+        return TestResult(
+            name     = "cleanup",
+            status   = info.get("status", "ok"),
+            summary  = info.get("summary", ""),
+        )
+
+    # ── Platform-Agnostik ─────────────────────────────────────────────────────
+
+    def _test_platform(self) -> TestResult:
+        import sys
+        platform = sys.platform
+        lines: list[str] = []
+        warnings_found: list[str] = []
+
+        # TTS-Backend prüfen
+        try:
+            from core.text_to_speech.tts_engine import TTSEngine
+            engine = TTSEngine()
+            tts_status = engine.get_status()
+            engine.shutdown()
+            tts_ready = tts_status.get("ready", False)
+            tts_label = tts_status.get("backend", "?")
+            if tts_ready:
+                lines.append(f"TTS: {tts_label} (ok)")
+            else:
+                warnings_found.append(f"TTS: {tts_label} nicht bereit")
+        except Exception as e:
+            warnings_found.append(f"TTS: Fehler — {e}")
+
+        # Window-Control-Backend prüfen
+        try:
+            from tools.pc_control import PCControl
+            wc_status = PCControl.get_status()
+            wc_ready  = wc_status.get("available", False)
+            wc_label  = wc_status.get("backend", "?")
+            if wc_ready:
+                lines.append(f"WinCtrl: {wc_label} (ok)")
+            else:
+                warnings_found.append(f"WinCtrl: {wc_label} — Stub aktiv")
+        except Exception as e:
+            warnings_found.append(f"WinCtrl: Fehler — {e}")
+
+        # Audio-In (sounddevice) prüfen
+        try:
+            from core.speech_to_text.whisper_engine import _SD_AVAILABLE
+            if _SD_AVAILABLE:
+                lines.append("Audio-In: sounddevice (ok)")
+            else:
+                hint = (
+                    "sudo apt install portaudio19-dev && pip install sounddevice"
+                    if platform.startswith("linux")
+                    else "pip install sounddevice"
+                )
+                warnings_found.append(f"Audio-In: sounddevice fehlt → {hint}")
+        except Exception as e:
+            warnings_found.append(f"Audio-In: Fehler — {e}")
+
+        summary = f"Platform: {platform}  |  " + "  |  ".join(lines)
+        if warnings_found:
+            return TestResult(
+                name     = "platform",
+                status   = "warn",
+                summary  = summary,
+                fix_hint = " | ".join(warnings_found),
+            )
+        return TestResult(
+            name    = "platform",
+            status  = "ok",
+            summary = summary,
+        )
+
+    # ── Router-Agent ──────────────────────────────────────────────────────────
+
+    def _test_router(self) -> TestResult:
+        r = self._router
+        if r is None:
+            return TestResult(
+                "router", "warn",
+                "RouterAgent nicht übergeben",
+                "SystemTest mit router_agent=router instanziieren",
+            )
+        info    = r.self_test()
+        enabled = info.get("enabled", False)
+        count   = info.get("decision_count", 0)
+        log_ok  = info.get("log_exists", False)
+        last    = info.get("last_decision")
+
+        if not enabled:
+            return TestResult(
+                "router", "warn",
+                "SIM-Modus aktiv — Router deaktiviert (kein API-Key)",
+                "Einen echten API-Key in .env eintragen für LLM-Routing",
+            )
+
+        last_str = f"  ·  Letzte Entscheidung: {last['skills']}" if last else ""
+        log_str  = "  ·  Log vorhanden" if log_ok else "  ·  Noch kein Log"
+        return TestResult(
+            "router", "ok",
+            f"Aktiv  ·  {count} Entscheidungen{last_str}{log_str}",
         )

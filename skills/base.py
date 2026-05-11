@@ -19,8 +19,9 @@ from abc import ABC, abstractmethod
 class Skill(ABC):
     """Abstrakte Basis für alle Skills."""
 
-    name: str       = ""          # Eindeutiger Skill-Name (Pflicht)
-    triggers: set[str] = set()    # Befehlswörter die diesen Skill auslösen
+    name: str          = ""        # Eindeutiger Skill-Name (Pflicht)
+    triggers: set[str] = set()     # Befehlswörter die diesen Skill auslösen
+    description: str   = ""        # Kurzbeschreibung für den Router-Agent
 
     @abstractmethod
     def handle(self, context: dict) -> str | None:
