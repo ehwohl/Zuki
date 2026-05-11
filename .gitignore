@@ -1,0 +1,47 @@
+# ── Secrets & Config ──────────────────────────────────────────────────────────
+.env
+*.env.local
+*.env.*.local
+
+# ── Laufzeit-Daten (nur Code wird committet, keine Daten) ─────────────────────
+temp/
+logs/
+backups/
+
+# ── Zukünftige Tenant-Daten (Bundle 5) ───────────────────────────────────────
+memory/clients/
+
+# ── Python-Artifacts ──────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyc
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# ── Virtuelle Environments ────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env/
+
+# ── IDE / Editor ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS-Dateien ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Claude-Upload-Spiegel (ist nur Mirror, nicht Quelle) ─────────────────────
+claude_project_upload/
+
+# ── Node (falls zukünftige UI-Komponenten) ────────────────────────────────────
+node_modules/

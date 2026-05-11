@@ -1,0 +1,53 @@
+OPENAI WHISPER — Einrichtungsanleitung
+=======================================
+
+PHASE 1 — GOOGLE COLAB (jetzt nutzbar)
+---------------------------------------
+1. colab.research.google.com → neues Notebook öffnen
+
+2. Skript laden:
+   D:\Zuki\suki_whisper_colab.py öffnen und Inhalt
+   in Colab-Zellen kopieren (oder Datei direkt hochladen
+   via File → Upload notebook)
+
+3. Audio-Datei hochladen:
+   Colab: linkes Panel → Ordner-Symbol → Datei reinziehen
+   Zieldatei landet unter: /content/dateiname.mp3
+
+4. Pfad in Zelle 4 anpassen:
+   AUDIO_PATH = "/content/deine_datei.mp3"
+
+5. Zellen der Reihe nach ausführen: 1 → 2 → 3 → 4
+   Ergebnis liegt in Variable: transcript
+
+ABHÄNGIGKEITEN (Zelle 1 ausführen):
+   !pip install openai-whisper
+   !apt install ffmpeg -q
+
+MODELL-WAHL:
+   "base"    → schnell, Test-Modus (Standard)    ~140 MB
+   "medium"  → empfohlen mit RTX 5090           ~1.4 GB
+   "large"   → maximale Genauigkeit             ~3.0 GB
+
+   Wechsel: MODEL_NAME = "medium"  (eine Zeile in Zelle 2)
+
+PHASE 2 — LOKAL MIT MIKROFON (wenn GPU geliefert)
+--------------------------------------------------
+1. Abhängigkeiten installieren:
+   pip install openai-whisper pyaudio soundfile numpy
+   + ffmpeg installieren (winget install ffmpeg)
+
+2. In suki_whisper_colab.py:
+   - Kommentar-Block in transcribe_microphone() aktivieren
+   - MODEL_NAME auf "medium" setzen
+
+3. Starten:
+   stt = SukiSTT(model_name="medium")
+   transcript = stt.transcribe_microphone(duration_sec=5)
+
+ANBINDUNG AN ZUKI/SUKI:
+   transcript = stt.transcribe_file("audio.mp3")
+   response = llm.chat([{"role": "user", "content": transcript}])
+
+RELEVANTE DATEIEN:
+   D:\Zuki\suki_whisper_colab.py

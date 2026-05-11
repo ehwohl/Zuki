@@ -1,0 +1,28 @@
+# ── Zuki — Python-Abhängigkeiten ───────────────────────────────────────────────
+# Installation: pip install -r requirements.txt
+
+# ── LLM-Provider ───────────────────────────────────────────────────────────────
+anthropic
+openai
+google-generativeai      # Gemini API (pip install google-generativeai)
+
+# ── Speech-to-Text (Whisper) ───────────────────────────────────────────────────
+openai-whisper
+sounddevice
+scipy
+numpy
+
+# ── Text-to-Speech ─────────────────────────────────────────────────────────────
+pyttsx3
+
+# ── Vision / Screen-Capture ────────────────────────────────────────────────────
+mss                  # blitzschnelle plattformübergreifende Screen-Captures
+Pillow               # Bildverarbeitung & JPEG-Export (PIL.Image)
+
+# ── Web-Scraper (Broker-Skill — LIVE UPGRADE) ──────────────────────────────────
+# newspaper3k        # Artikel-Extraktion aus URLs
+# beautifulsoup4     # HTML-Parsing
+# requests           # HTTP-Client
+
+# ── Datenbank / Persistenz (optional — Supabase) ───────────────────────────────
+# supabase           # Aktivieren wenn Supabase genutzt wird

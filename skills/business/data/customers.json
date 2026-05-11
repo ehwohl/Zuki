@@ -1,0 +1,29 @@
+[
+  {
+    "id": "demo-001",
+    "name": "Max Mustermann",
+    "status": "Lead",
+    "email": "max@example.com",
+    "last_contact": "2026-05-01",
+    "notes": "Interesse an Paket A gezeigt. Follow-Up ausstehend.",
+    "added": "2026-05-01"
+  },
+  {
+    "id": "demo-002",
+    "name": "Erika Muster",
+    "status": "Aktiv",
+    "email": "erika@example.com",
+    "last_contact": "2026-05-04",
+    "notes": "Rechnung gestellt. Zahlung erwartet bis 15.05.",
+    "added": "2026-04-20"
+  },
+  {
+    "id": "demo-003",
+    "name": "Thomas Schmidt",
+    "status": "Lead",
+    "email": "",
+    "last_contact": "2026-04-28",
+    "notes": "Erstgespräch geführt. Angebot noch nicht gesendet.",
+    "added": "2026-04-28"
+  }
+]

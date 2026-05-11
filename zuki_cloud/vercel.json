@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/memory",        "destination": "/api/index" },
+    { "source": "/api/memory/(.*)",   "destination": "/api/index" }
+  ]
+}

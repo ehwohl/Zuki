@@ -1,0 +1,14 @@
+{
+  "positive": [
+    "rekord", "gewinn", "wachstum", "anstieg", "rally", "stärke",
+    "überraschung", "prognose erhöht", "guidance erhöht", "beat",
+    "allzeithoch", "bullish", "aufschwung", "erholung", "zugewinn",
+    "outperform", "kaufempfehlung", "dividende", "expansion", "ertrag"
+  ],
+  "negative": [
+    "verlust", "klage", "crash", "einbruch", "rückgang", "warnung",
+    "verfehlt", "miss", "guidance gesenkt", "prognose gesenkt", "bearish",
+    "insolvenz", "pleite", "strafe", "rückruf", "krise", "absturz",
+    "underperform", "verkaufsempfehlung", "gewinnwarnung", "schwäche"
+  ]
+}

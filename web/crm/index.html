@@ -1,0 +1,1886 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VermittlerCRM">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0d14">
+<meta name="application-name" content="VermittlerCRM">
+<title>VermittlerCRM</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   DESIGN TOKENS & RESET
+═══════════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg0:#0b0d14;
+  --bg1:#12141e;
+  --bg2:#191c2a;
+  --bg3:#1f2235;
+  --bg4:#252840;
+  --border:rgba(255,255,255,0.07);
+  --border-hi:rgba(255,255,255,0.13);
+  --text0:#f0f2ff;
+  --text1:#b8bdd8;
+  --text2:#6b728f;
+  --text3:#3d4260;
+  --blue:#5b8ef7;
+  --blue-d:rgba(91,142,247,0.12);
+  --blue-b:rgba(91,142,247,0.28);
+  --orange:#f79a5b;
+  --orange-d:rgba(247,154,91,0.12);
+  --orange-b:rgba(247,154,91,0.28);
+  --green:#4fd4a0;
+  --green-d:rgba(79,212,160,0.10);
+  --green-b:rgba(79,212,160,0.25);
+  --red:#f76f7a;
+  --red-d:rgba(247,111,122,0.10);
+  --amber:#f7c96b;
+  --amber-d:rgba(247,201,107,0.10);
+  --violet:#a78bfa;
+  --violet-d:rgba(167,139,250,0.10);
+  --r8:8px;--r12:12px;--r16:16px;--r20:20px;--r24:24px;
+  --nav-h:68px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+}
+html{height:100%;overscroll-behavior:none}
+body{
+  background:var(--bg0);color:var(--text0);
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;
+  font-size:15px;line-height:1.5;
+  min-height:100%;min-height:100dvh;
+  overscroll-behavior:none;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font-family:inherit;font-size:15px}
+a{color:var(--blue);text-decoration:none}
+
+/* ═══════════════════════════════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════════════════════════════ */
+#app{
+  display:flex;flex-direction:column;
+  min-height:100dvh;
+  padding-top:var(--safe-t);
+}
+#topbar{
+  position:sticky;top:0;z-index:80;
+  padding:14px 16px 10px;
+  background:rgba(11,13,20,0.92);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  gap:10px;
+}
+#topbar-title{font-size:18px;font-weight:700;color:var(--text0);letter-spacing:-.3px}
+#topbar-sub{font-size:12px;color:var(--text2)}
+#topbar-right{display:flex;gap:8px;align-items:center}
+
+/* Scrollable content area */
+#content{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:16px 16px calc(var(--nav-h) + var(--safe-b) + 12px);
+  -webkit-overflow-scrolling:touch;
+}
+
+/* Bottom Navigation */
+#bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:100;
+  height:calc(var(--nav-h) + var(--safe-b));
+  padding-bottom:var(--safe-b);
+  background:rgba(15,17,26,0.97);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-top:1px solid var(--border);
+  display:flex;align-items:flex-start;
+  padding-top:6px;
+}
+.nav-tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  min-height:44px;padding:4px 4px 0;
+  border:none;background:none;color:var(--text3);cursor:pointer;
+  transition:color .15s;position:relative;
+}
+.nav-tab.active{color:var(--blue)}
+.nav-tab svg{width:22px;height:22px;stroke-width:1.8;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}
+.nav-tab.active svg{stroke-width:2.2}
+.nav-label{font-size:10px;font-weight:500;letter-spacing:.01em}
+.nav-badge{
+  position:absolute;top:2px;right:18px;
+  background:var(--red);color:#fff;
+  border-radius:10px;min-width:16px;height:16px;
+  font-size:9px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  padding:0 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PAGES
+═══════════════════════════════════════════════════════════════ */
+.page{display:none}
+.page.active{display:block;animation:fadeSlide .22s ease}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ═══════════════════════════════════════════════════════════════
+   CARDS & SURFACES
+═══════════════════════════════════════════════════════════════ */
+.card{
+  background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r16);padding:16px;margin-bottom:12px;
+}
+.card:active{background:var(--bg2)}
+.card-sm{
+  background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r12);padding:12px 14px;margin-bottom:8px;
+}
+.surface{background:var(--bg2);border-radius:var(--r12);padding:14px}
+
+/* ═══════════════════════════════════════════════════════════════
+   TYPOGRAPHY
+═══════════════════════════════════════════════════════════════ */
+.h1{font-size:22px;font-weight:700;letter-spacing:-.4px;color:var(--text0)}
+.h2{font-size:17px;font-weight:700;letter-spacing:-.2px;color:var(--text0)}
+.h3{font-size:14px;font-weight:600;color:var(--text0)}
+.label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.08em}
+.muted{color:var(--text2);font-size:13px}
+.tiny{color:var(--text3);font-size:11px}
+
+/* ═══════════════════════════════════════════════════════════════
+   STAT CARDS
+═══════════════════════════════════════════════════════════════ */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+@media(min-width:600px){.stat-grid{grid-template-columns:repeat(4,1fr)}}
+.stat-card{
+  background:var(--bg1);border:1px solid var(--border);border-radius:var(--r16);
+  padding:16px;display:flex;flex-direction:column;gap:6px;
+  position:relative;overflow:hidden;
+}
+.stat-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  border-radius:var(--r16) var(--r16) 0 0;
+}
+.stat-blue::before{background:var(--blue)}
+.stat-green::before{background:var(--green)}
+.stat-orange::before{background:var(--orange)}
+.stat-violet::before{background:var(--violet)}
+.stat-val{font-size:24px;font-weight:800;letter-spacing:-.5px;color:var(--text0)}
+.stat-lbl{font-size:11px;color:var(--text2)}
+.stat-icon{font-size:22px;position:absolute;right:14px;top:14px;opacity:.25}
+
+/* ═══════════════════════════════════════════════════════════════
+   INPUTS & FORMS
+═══════════════════════════════════════════════════════════════ */
+.field{margin-bottom:12px}
+.field-label{display:block;font-size:12px;font-weight:600;color:var(--text2);
+  text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+input[type=text],input[type=email],input[type=tel],input[type=number],
+input[type=date],input[type=url],select,textarea{
+  width:100%;min-height:48px;
+  background:var(--bg2);border:1px solid var(--border-hi);
+  border-radius:var(--r12);padding:12px 14px;
+  color:var(--text0);font-size:15px;outline:none;
+  transition:border-color .15s,background .15s;
+  -webkit-appearance:none;appearance:none;
+}
+input:focus,select:focus,textarea:focus{
+  border-color:var(--blue);background:var(--bg3);
+  box-shadow:0 0 0 3px rgba(91,142,247,.15);
+}
+input::placeholder,textarea::placeholder{color:var(--text3)}
+textarea{min-height:100px;resize:vertical;line-height:1.6}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b728f' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+select option{background:var(--bg2)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(min-width:600px){.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}}
+
+/* ═══════════════════════════════════════════════════════════════
+   BUTTONS (min 44×44)
+═══════════════════════════════════════════════════════════════ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  min-height:44px;min-width:44px;
+  padding:10px 18px;border-radius:var(--r12);
+  border:1px solid var(--border-hi);background:var(--bg2);
+  color:var(--text0);font-size:14px;font-weight:600;
+  cursor:pointer;transition:all .15s;white-space:nowrap;
+  -webkit-user-select:none;user-select:none;
+}
+.btn:active{transform:scale(.97);opacity:.85}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff;
+  box-shadow:0 4px 16px rgba(91,142,247,.3)}
+.btn-primary:active{background:#4a7de0}
+.btn-success{background:var(--green-d);border-color:var(--green-b);color:var(--green)}
+.btn-danger{background:var(--red-d);border-color:rgba(247,111,122,.3);color:var(--red)}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--text2)}
+.btn-ghost:active{background:var(--bg2)}
+.btn-sm{min-height:36px;padding:6px 12px;font-size:13px;border-radius:var(--r8)}
+.btn-full{width:100%}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+
+/* ═══════════════════════════════════════════════════════════════
+   TAGS & BADGES
+═══════════════════════════════════════════════════════════════ */
+.tag-b{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;
+  font-size:12px;font-weight:600;background:var(--blue-d);border:1px solid var(--blue-b);color:var(--blue)}
+.tag-i{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;
+  font-size:12px;font-weight:600;background:var(--orange-d);border:1px solid var(--orange-b);color:var(--orange)}
+.tag-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-lead{background:var(--amber-d);color:var(--amber)}
+.badge-aktiv{background:var(--green-d);color:var(--green)}
+.badge-partner{background:var(--violet-d);color:var(--violet)}
+.badge-inaktiv{background:rgba(107,114,143,.1);color:var(--text2)}
+
+/* Tag selector */
+.tag-sel{display:flex;flex-wrap:wrap;gap:6px}
+.tag-sel-item{
+  padding:6px 12px;border-radius:20px;
+  border:1px solid var(--border-hi);background:var(--bg2);
+  color:var(--text2);cursor:pointer;font-size:13px;font-weight:500;
+  min-height:36px;display:inline-flex;align-items:center;
+  transition:all .12s;
+}
+.tag-sel-item.sel-b{background:var(--blue-d);border-color:var(--blue-b);color:var(--blue)}
+.tag-sel-item.sel-i{background:var(--orange-d);border-color:var(--orange-b);color:var(--orange)}
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION HEADER
+═══════════════════════════════════════════════════════════════ */
+.sec{display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px}
+.sec:first-child{margin-top:4px}
+
+/* ═══════════════════════════════════════════════════════════════
+   CONTACT LIST ITEM
+═══════════════════════════════════════════════════════════════ */
+.c-item{
+  display:flex;align-items:center;gap:12px;
+  padding:14px;background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r16);margin-bottom:10px;cursor:pointer;
+  transition:border-color .15s;
+  -webkit-user-select:none;user-select:none;
+}
+.c-item:active{background:var(--bg2)}
+.avatar{
+  width:44px;height:44px;border-radius:14px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;font-weight:800;
+  background:linear-gradient(135deg,var(--blue-d),var(--violet-d));
+  border:1px solid var(--blue-b);color:var(--blue);
+}
+.avatar-lg{width:56px;height:56px;border-radius:18px;font-size:22px}
+.c-name{font-size:15px;font-weight:700;color:var(--text0)}
+.c-meta{font-size:12px;color:var(--text2);margin-top:1px}
+
+/* ═══════════════════════════════════════════════════════════════
+   OFFER ROW
+═══════════════════════════════════════════════════════════════ */
+.o-item{
+  display:flex;align-items:center;gap:12px;
+  padding:14px;background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r16);margin-bottom:10px;cursor:pointer;
+}
+.o-item:active{background:var(--bg2)}
+.o-stripe{width:4px;align-self:stretch;border-radius:4px;flex-shrink:0}
+.o-title{font-size:14px;font-weight:700;color:var(--text0);
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.o-meta{font-size:12px;color:var(--text2);margin-top:2px}
+.o-amount{text-align:right;flex-shrink:0}
+.o-val{font-size:15px;font-weight:800;color:var(--text0)}
+.o-prov{font-size:12px;color:var(--blue);margin-top:1px}
+
+/* ═══════════════════════════════════════════════════════════════
+   FILTER PILLS
+═══════════════════════════════════════════════════════════════ */
+.filter-row{display:flex;gap:7px;overflow-x:auto;margin-bottom:14px;
+  padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.filter-row::-webkit-scrollbar{display:none}
+.fp{
+  flex-shrink:0;min-height:36px;padding:6px 14px;
+  border-radius:20px;border:1px solid var(--border);
+  background:transparent;color:var(--text2);cursor:pointer;
+  font-size:13px;font-weight:500;white-space:nowrap;transition:all .12s;
+}
+.fp.on{background:var(--blue-d);border-color:var(--blue-b);color:var(--blue)}
+
+/* ═══════════════════════════════════════════════════════════════
+   SEARCH BAR
+═══════════════════════════════════════════════════════════════ */
+.search-wrap{position:relative;margin-bottom:12px}
+.search-wrap input{padding-left:42px}
+.search-ico{
+  position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  color:var(--text3);font-size:18px;pointer-events:none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODAL (bottom sheet)
+═══════════════════════════════════════════════════════════════ */
+.overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.65);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  display:none;align-items:flex-end;justify-content:center;
+}
+.overlay.open{display:flex;animation:fadeBg .2s ease}
+@keyframes fadeBg{from{opacity:0}to{opacity:1}}
+.sheet{
+  background:var(--bg1);border:1px solid var(--border-hi);
+  border-radius:var(--r24) var(--r24) 0 0;
+  width:100%;max-width:560px;
+  max-height:92dvh;overflow-y:auto;
+  padding:0 0 calc(20px + var(--safe-b));
+  animation:sheetUp .28s cubic-bezier(.32,1,.32,1);
+  -webkit-overflow-scrolling:touch;
+}
+@media(min-width:600px){
+  .overlay{align-items:center}
+  .sheet{border-radius:var(--r24);max-height:88dvh;margin:16px}
+}
+@keyframes sheetUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+.sheet-handle{
+  width:36px;height:4px;border-radius:4px;background:var(--border-hi);
+  margin:10px auto 0;
+}
+.sheet-hdr{
+  position:sticky;top:0;background:var(--bg1);z-index:10;
+  padding:14px 16px 12px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.sheet-title{font-size:17px;font-weight:700;color:var(--text0)}
+.sheet-body{padding:16px}
+.close-btn{
+  width:32px;height:32px;border-radius:50%;border:1px solid var(--border);
+  background:var(--bg2);color:var(--text2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+  flex-shrink:0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════════════════════ */
+.tabs{
+  display:flex;gap:4px;background:var(--bg2);
+  border-radius:var(--r12);padding:3px;margin-bottom:16px;
+}
+.tab{
+  flex:1;min-height:40px;padding:8px 4px;border-radius:var(--r8);
+  border:none;background:none;color:var(--text2);cursor:pointer;
+  font-size:13px;font-weight:600;text-align:center;transition:all .15s;
+}
+.tab.on{background:var(--bg0);color:var(--text0);
+  box-shadow:0 1px 4px rgba(0,0,0,.4)}
+
+/* ═══════════════════════════════════════════════════════════════
+   MEMO
+═══════════════════════════════════════════════════════════════ */
+.memo{
+  background:var(--bg2);border-radius:var(--r12);padding:12px 14px;
+  margin-bottom:8px;border-left:3px solid var(--blue);
+}
+.memo-type{font-size:11px;font-weight:700;color:var(--blue);
+  text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+.memo-text{font-size:14px;color:var(--text0);line-height:1.6;white-space:pre-wrap}
+.memo-date{font-size:11px;color:var(--text3);margin-top:6px}
+
+/* ═══════════════════════════════════════════════════════════════
+   MARKETPLACE / AGENCY CARDS
+═══════════════════════════════════════════════════════════════ */
+.market-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+@media(min-width:500px){.market-grid{grid-template-columns:repeat(3,1fr)}}
+.market-card{
+  background:var(--bg1);border:2px solid var(--border);border-radius:var(--r16);
+  padding:14px 12px;cursor:pointer;text-align:center;
+  transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:8px;
+}
+.market-card:active{transform:scale(.97)}
+.market-card.selected{border-color:var(--blue);background:var(--blue-d)}
+.market-icon{font-size:28px;line-height:1}
+.market-name{font-size:13px;font-weight:700;color:var(--text0)}
+.market-desc{font-size:11px;color:var(--text2);line-height:1.4}
+.market-price{font-size:12px;font-weight:700;color:var(--green)}
+
+/* Agency detail card */
+.agency-card{
+  background:var(--bg1);border:1px solid var(--border);border-radius:var(--r16);
+  padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;
+}
+.agency-icon{
+  width:46px;height:46px;border-radius:var(--r12);
+  background:var(--blue-d);border:1px solid var(--blue-b);
+  display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHART BARS
+═══════════════════════════════════════════════════════════════ */
+.chart{display:flex;align-items:flex-end;gap:6px;height:80px;padding:0 2px}
+.bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bar{width:100%;border-radius:4px 4px 0 0;background:var(--blue);
+  min-height:3px;transition:height .4s ease}
+.bar-lbl{font-size:10px;color:var(--text3)}
+
+/* ═══════════════════════════════════════════════════════════════
+   EMAIL / BLOCKS
+═══════════════════════════════════════════════════════════════ */
+.block-item{
+  padding:11px 13px;border-bottom:1px solid var(--border);cursor:pointer;
+  transition:background .12s;
+}
+.block-item:last-child{border-bottom:none}
+.block-item:active{background:var(--bg3)}
+.block-name{font-size:13px;font-weight:700;color:var(--text0)}
+.block-prev{font-size:12px;color:var(--text2);overflow:hidden;
+  white-space:nowrap;text-overflow:ellipsis;margin-top:2px;max-width:90%}
+.block-library{background:var(--bg2);border-radius:var(--r12);
+  border:1px solid var(--border);overflow:hidden;margin-bottom:12px}
+
+.var-pill{
+  display:inline-flex;align-items:center;
+  padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;
+  background:var(--violet-d);border:1px solid rgba(167,139,250,.25);color:var(--violet);
+  cursor:pointer;margin:3px;min-height:32px;
+}
+.var-pill:active{opacity:.7}
+
+/* ═══════════════════════════════════════════════════════════════
+   QUICK ACTIONS
+═══════════════════════════════════════════════════════════════ */
+.qa-btn{
+  display:flex;align-items:center;gap:12px;
+  padding:14px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r16);cursor:pointer;margin-bottom:8px;
+  min-height:64px;transition:border-color .15s;
+}
+.qa-btn:active{background:var(--bg3)}
+.qa-ico{font-size:24px;flex-shrink:0}
+.qa-label{font-size:14px;font-weight:700;color:var(--text0)}
+.qa-desc{font-size:12px;color:var(--text2);margin-top:2px}
+
+/* ═══════════════════════════════════════════════════════════════
+   REVENUE
+═══════════════════════════════════════════════════════════════ */
+.rev-row{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;background:var(--bg1);border:1px solid var(--border);
+  border-radius:var(--r12);margin-bottom:8px;
+}
+.rev-ico{font-size:22px;flex-shrink:0}
+.rev-amt{font-weight:800;font-size:16px;flex-shrink:0}
+.amt-green{color:var(--green)}
+.amt-amber{color:var(--amber)}
+
+/* ═══════════════════════════════════════════════════════════════
+   BIO ONBOARDING
+═══════════════════════════════════════════════════════════════ */
+.bio-guide{
+  background:var(--bg3);border:1px dashed var(--border-hi);
+  border-radius:var(--r12);padding:12px 14px;margin-bottom:8px;
+}
+.bio-guide-row{display:flex;align-items:flex-start;gap:8px;
+  font-size:13px;color:var(--text1);margin-bottom:5px}
+.bio-guide-row:last-child{margin-bottom:0}
+.bio-num{
+  width:20px;height:20px;border-radius:50%;flex-shrink:0;
+  background:var(--blue-d);border:1px solid var(--blue-b);color:var(--blue);
+  font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MISC
+═══════════════════════════════════════════════════════════════ */
+.divider{height:1px;background:var(--border);margin:14px 0}
+.empty{color:var(--text3);text-align:center;padding:32px 16px;font-size:14px}
+.copecart-box{
+  background:rgba(247,201,107,.06);border:1px solid rgba(247,201,107,.2);
+  border-radius:var(--r12);padding:12px 14px;margin-bottom:10px;
+}
+.copecart-lbl{font-size:11px;font-weight:700;color:var(--amber);
+  text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.monthly-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0}
+.mgcell{padding:7px 6px;border-bottom:1px solid var(--border);font-size:12px}
+.mghdr{font-size:11px;font-weight:700;color:var(--text2);padding-bottom:6px;
+  border-bottom:1px solid var(--border-hi)}
+/* Admin list item */
+.adm-item{
+  display:flex;align-items:center;gap:10px;padding:11px 12px;
+  background:var(--bg2);border-radius:var(--r12);border:1px solid var(--border);
+  margin-bottom:7px;
+}
+.adm-item-info{flex:1;min-width:0}
+
+/* Desktop sidebar bonus */
+@media(min-width:780px){
+  #bottom-nav{display:none}
+  #content{padding-bottom:20px}
+  #app{flex-direction:row}
+  #sidebar{
+    width:220px;flex-shrink:0;
+    background:var(--bg1);border-right:1px solid var(--border);
+    min-height:100dvh;padding:20px 12px;
+    display:flex;flex-direction:column;gap:4px;
+    position:sticky;top:0;height:100dvh;overflow-y:auto;
+  }
+  #topbar{display:none}
+  .sidebar-logo{
+    font-size:17px;font-weight:800;color:var(--text0);
+    padding:8px 12px 16px;letter-spacing:-.3px;
+  }
+  .sidebar-logo span{color:var(--blue)}
+  .sidebar-tab{
+    display:flex;align-items:center;gap:10px;
+    padding:11px 12px;border-radius:var(--r12);border:none;
+    background:none;color:var(--text2);cursor:pointer;font-size:14px;font-weight:500;
+    width:100%;text-align:left;transition:all .15s;min-height:44px;
+  }
+  .sidebar-tab.active{background:var(--blue-d);color:var(--blue);
+    border:1px solid var(--blue-b);font-weight:700}
+  .sidebar-tab svg{width:18px;height:18px;stroke-width:1.8;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+  #main-area{flex:1;overflow-y:auto;padding:24px;max-width:900px}
+  #topbar-desktop{
+    display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;
+  }
+}
+@media(max-width:779px){
+  #sidebar{display:none}
+  #main-area{width:100%}
+  #topbar-desktop{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Desktop Sidebar -->
+  <div id="sidebar">
+    <div class="sidebar-logo">Vermittler<span>CRM</span></div>
+    <button class="sidebar-tab active" id="sd-dashboard" onclick="nav('dashboard')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="sidebar-tab" id="sd-contacts" onclick="nav('contacts')">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Kontakte
+    </button>
+    <button class="sidebar-tab" id="sd-market" onclick="nav('market')">
+      <svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      Marktplatz
+    </button>
+    <button class="sidebar-tab" id="sd-emails" onclick="nav('emails')">
+      <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      E-Mails
+    </button>
+    <button class="sidebar-tab" id="sd-revenue" onclick="nav('revenue')">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Umsatz
+    </button>
+    <button class="sidebar-tab" id="sd-admin" onclick="nav('admin')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      Admin
+    </button>
+  </div>
+
+  <!-- Main area -->
+  <div id="main-area">
+    <!-- Mobile topbar -->
+    <div id="topbar">
+      <div>
+        <div id="topbar-title">Dashboard</div>
+      </div>
+      <div id="topbar-right"></div>
+    </div>
+
+    <div id="content">
+      <!-- Desktop page title -->
+      <div id="topbar-desktop">
+        <div class="h1" id="desktop-title">Dashboard</div>
+      </div>
+
+      <!-- DASHBOARD PAGE -->
+      <div class="page active" id="page-dashboard">
+        <div class="stat-grid" id="dash-stats"></div>
+        <div class="sec"><span class="label">Umsatz 6 Monate</span></div>
+        <div class="card" style="padding:14px 14px 8px">
+          <div class="chart" id="dash-chart"></div>
+        </div>
+        <div class="sec"><span class="label">Neueste Angebote</span>
+          <button class="btn btn-sm btn-ghost" onclick="nav('market')">Alle →</button>
+        </div>
+        <div id="dash-offers"></div>
+        <div class="sec"><span class="label">Schnellzugriff</span></div>
+        <div class="row2">
+          <button class="btn btn-full" onclick="nav('contacts');setTimeout(openContactForm,100)">+ Kontakt</button>
+          <button class="btn btn-full btn-primary" onclick="nav('market');setTimeout(()=>openOfferForm(),120)">+ Angebot</button>
+        </div>
+      </div>
+
+      <!-- CONTACTS PAGE -->
+      <div class="page" id="page-contacts">
+        <div class="sec"><span class="label">Kontakte (<span id="c-count">0</span>)</span>
+          <button class="btn btn-sm btn-primary" onclick="openContactForm()">+ Neu</button>
+        </div>
+        <div class="search-wrap">
+          <span class="search-ico">🔍</span>
+          <input type="text" id="c-search" placeholder="Name, Firma, E-Mail…" oninput="renderContacts()" autocomplete="off">
+        </div>
+        <div class="filter-row" id="c-filters"></div>
+        <div id="c-list"></div>
+      </div>
+
+      <!-- MARKET / OFFERS PAGE -->
+      <div class="page" id="page-market">
+        <div class="sec"><span class="label">Agentur-Marktplatz</span>
+          <button class="btn btn-sm btn-primary" onclick="openOfferForm()">+ Angebot</button>
+        </div>
+        <!-- Services marketplace -->
+        <div class="card" style="margin-bottom:16px">
+          <div class="label" style="margin-bottom:12px">Dienstleistungen wählen</div>
+          <div class="market-grid" id="service-cards"></div>
+          <div style="font-size:12px;color:var(--text2)">Tippe auf eine Karte, um ein Angebot zu erstellen</div>
+        </div>
+        <!-- Agency partners -->
+        <div class="sec"><span class="label">Agentur-Partner</span></div>
+        <div id="agency-list-market"></div>
+        <div class="divider"></div>
+        <div class="sec"><span class="label">Meine Angebote</span></div>
+        <div class="filter-row" id="o-filters"></div>
+        <div id="o-list"></div>
+      </div>
+
+      <!-- EMAILS PAGE -->
+      <div class="page" id="page-emails">
+        <div class="sec"><span class="label">E-Mail schreiben</span></div>
+        <div class="field">
+          <label class="field-label">Kontakt</label>
+          <select id="em-contact" onchange="updateEmailCtx()">
+            <option value="">— Kontakt wählen —</option>
+          </select>
+        </div>
+        <div id="em-qa" style="display:none">
+          <div class="label" style="margin-bottom:10px">⚡ Schnellvorgänge</div>
+          <div id="em-qa-list"></div>
+          <div class="divider"></div>
+        </div>
+        <div id="em-composer" style="display:none">
+          <div class="tabs">
+            <button class="tab on" id="etab-btn-compose" onclick="setEmailTab('compose')">Verfassen</button>
+            <button class="tab" id="etab-btn-blocks" onclick="setEmailTab('blocks')">Bausteine</button>
+            <button class="tab" id="etab-btn-templates" onclick="setEmailTab('templates')">Vorlagen</button>
+          </div>
+          <div id="etab-compose">
+            <div class="field"><label class="field-label">Betreff</label>
+              <input type="text" id="em-subject" placeholder="Betreff…">
+            </div>
+            <div class="field">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <label class="field-label" style="margin:0">Nachricht</label>
+                <button class="btn btn-sm btn-ghost" onclick="toggleVars()" style="font-size:12px">&#123;&#125; Variablen</button>
+              </div>
+              <div id="em-vars" style="display:none;margin-bottom:8px;display:none"></div>
+              <textarea id="em-body" rows="9" placeholder="Text hier eingeben…"></textarea>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" onclick="doMailto()">📧 E-Mail öffnen</button>
+              <button class="btn" onclick="doGmail()">🔗 Gmail</button>
+              <button class="btn btn-ghost" onclick="doCopy()">📋</button>
+            </div>
+          </div>
+          <div id="etab-blocks" style="display:none"></div>
+          <div id="etab-templates" style="display:none"></div>
+        </div>
+        <div id="em-hint" class="empty">👆 Wähle zuerst einen Kontakt</div>
+      </div>
+
+      <!-- REVENUE PAGE -->
+      <div class="page" id="page-revenue">
+        <div class="sec"><span class="label">Umsatz & Provisionen</span>
+          <button class="btn btn-sm btn-primary" onclick="openRevenueForm()">+ Einnahme</button>
+        </div>
+        <div class="stat-grid" id="rev-stats"></div>
+        <div class="card" style="padding:14px">
+          <div class="label" style="margin-bottom:10px">Monatsübersicht</div>
+          <div class="monthly-grid">
+            <div class="mghdr">Monat</div><div class="mghdr">Erhalten</div><div class="mghdr">Offen</div>
+          </div>
+          <div id="rev-monthly"></div>
+        </div>
+        <div class="filter-row">
+          <button class="fp on" onclick="setRevF('Alle',this)">Alle</button>
+          <button class="fp" onclick="setRevF('Erhalten',this)">Erhalten</button>
+          <button class="fp" onclick="setRevF('Ausstehend',this)">Ausstehend</button>
+        </div>
+        <div id="rev-list"></div>
+      </div>
+
+      <!-- ADMIN PAGE -->
+      <div class="page" id="page-admin">
+        <div class="sec"><span class="label">Admin-Panel</span></div>
+        <div class="tabs">
+          <button class="tab on" id="atab-btn-agencies" onclick="setAdminTab('agencies')">Agenturen</button>
+          <button class="tab" id="atab-btn-blocks" onclick="setAdminTab('blocks')">Bausteine</button>
+          <button class="tab" id="atab-btn-settings" onclick="setAdminTab('settings')">Einst.</button>
+        </div>
+        <div id="admin-content"></div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main-area -->
+
+  <!-- Mobile Bottom Nav -->
+  <nav id="bottom-nav">
+    <button class="nav-tab active" id="nb-dashboard" onclick="nav('dashboard')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span class="nav-label">Dashboard</span>
+    </button>
+    <button class="nav-tab" id="nb-contacts" onclick="nav('contacts')">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span class="nav-label">Kontakte</span>
+    </button>
+    <button class="nav-tab" id="nb-market" onclick="nav('market')">
+      <svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      <span class="nav-label">Markt</span>
+    </button>
+    <button class="nav-tab" id="nb-emails" onclick="nav('emails')">
+      <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      <span class="nav-label">E-Mail</span>
+    </button>
+    <button class="nav-tab" id="nb-admin" onclick="nav('admin')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      <span class="nav-label">Admin</span>
+    </button>
+  </nav>
+</div>
+
+<!-- MODAL OVERLAY -->
+<div class="overlay" id="overlay" onclick="overlayClick(event)">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-hdr">
+      <span class="sheet-title" id="sheet-title">–</span>
+      <button class="close-btn" onclick="closeModal()">×</button>
+    </div>
+    <div class="sheet-body" id="sheet-body"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════════
+   DATA LAYER
+   TODO: Supabase Sync – replace localStorage with Supabase calls
+═══════════════════════════════════════════════════════════════ */
+const STORE_KEY = 'crm_v4';
+const TODAY     = new Date().toISOString().slice(0,10);
+const MONTHS    = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+const BIO_PROMPTS = [
+  'Was ist das Hauptproblem des Kunden?',
+  'Welche Branche / welcher Markt?',
+  'Wer ist die Zielgruppe?',
+  'Was macht den Kunden einzigartig?',
+  'Besondere Wünsche oder No-Gos?'
+];
+
+const SERVICE_CATALOG = [
+  {id:'web', icon:'🌐', name:'Webdesign',     desc:'Website & Landingpages',  price:'ab 1.500 €'},
+  {id:'seo', icon:'🔍', name:'SEO',           desc:'Suchmaschinen-Optimierung',price:'ab 500 €/M'},
+  {id:'sm',  icon:'📱', name:'Social Media',  desc:'Instagram, Facebook & Co.',price:'ab 400 €/M'},
+  {id:'br',  icon:'✨', name:'Branding',      desc:'Logo, CI, Design-System',  price:'ab 800 €'},
+  {id:'vid', icon:'🎬', name:'Video',         desc:'Reels, Clips, Erklärfilme',price:'ab 600 €'},
+  {id:'pr',  icon:'✍️', name:'Texte & PR',    desc:'Copywriting, Pressemittlg.',price:'ab 300 €'},
+  {id:'it',  icon:'💻', name:'IT-Support',    desc:'Systeme, Cloud, Security',  price:'ab 80 €/h'},
+  {id:'em',  icon:'📧', name:'E-Mail-Mktg',  desc:'Newsletter, Automation',    price:'ab 350 €/M'},
+];
+
+const MEMO_TYPES  = ['Telefonat','E-Mail','Meeting','Notiz','Aufgabe','Follow-Up','Angebot','Sonstiges'];
+const MEMO_ICONS  = {Telefonat:'📞','E-Mail':'📧',Meeting:'🤝',Notiz:'📝',Aufgabe:'✅','Follow-Up':'🔔',Angebot:'💼',Sonstiges:'💬'};
+const OFFER_ST    = ['Entwurf','Gesendet','Verhandlung','Gewonnen','Verloren','Storniert'];
+const OFFER_COL   = {Entwurf:'#6b728f',Gesendet:'#5b8ef7',Verhandlung:'#f7c96b',Gewonnen:'#4fd4a0',Verloren:'#f76f7a',Storniert:'#3d4260'};
+const PAY_TYPES   = ['Einmalzahlung','Abo monatlich','Abo jährlich','Ratenzahlung'];
+const BCAT        = ['Begrüssung','Einleitung','Angebot','Zahlung','Abschluss','Follow-Up','Akquise'];
+const VARS        = [
+  {k:'{{firmen_name}}',  l:'Firma'},
+  {k:'{{kontakt_vorname}}', l:'Vorname'},
+  {k:'{{angebot_titel}}',l:'Angebot'},
+  {k:'{{angebot_wert}}', l:'Wert'},
+  {k:'{{agentur_name}}', l:'Agentur'},
+  {k:'{{copecart_link}}',l:'Copecart'},
+  {k:'{{mein_name}}',    l:'Mein Name'},
+];
+const BIZ_TAGS  = ['E-Commerce','Gastronomie','Gesundheit','Immobilien','IT & Software','Handwerk','Beratung','Retail'];
+const INT_TAGS  = ['Nachhaltigkeit','Sport','Reisen','Kunst & Kultur','Technologie','Familie','Fotografie'];
+
+/* ─── Default data ─────────────────────────────────────────── */
+const DEFAULT = {
+  contacts:[
+    {id:1,name:'Muster GmbH',type:'KMU',contact:'Hans Muster',
+     email:'h.muster@muster-gmbh.de',phone:'+49 89 123 45 67',status:'Aktiv',
+     bTags:['IT & Software'],iTags:['Technologie'],
+     bio:'1. Braucht neue Website für mehr Online-Kunden\n2. IT-Dienstleister B2B\n3. Mittelständische Unternehmen\n4. 20 Jahre Erfahrung, stabiler Kundenstamm\n5. Kein Outsourcing nach Übersee',
+     notes:'Interessiert an Digitalstrategie',
+     memos:[{id:'m1',type:'Telefonat',content:'Erstgespräch – sehr positiv. Wünscht Angebot bis Ende Monat.',date:'2026-04-10'}],
+     createdAt:'2026-03-15'},
+    {id:2,name:'Bäckerei Zürcher',type:'KMU',contact:'Anna Zürcher',
+     email:'info@baeckerei-zuercher.de',phone:'+49 30 987 65 43',status:'Lead',
+     bTags:['Gastronomie'],iTags:['Familie','Nachhaltigkeit'],
+     bio:'1. Zu wenig Laufkundschaft, kein Online-Kanal\n2. Traditionelle Bäckerei, Familienunternehmen\n3. Einwohner im Umkreis, Stammkunden\n4. Einzige Bäckerei im Viertel\n5. Nur Facebook, kein Instagram gewünscht',
+     notes:'Social-Media-Betreuung',memos:[],createdAt:'2026-04-02'},
+    {id:3,name:'Pixel Studio GmbH',type:'Agentur',contact:'Lukas Brand',
+     email:'l.brand@pixelstudio.de',phone:'+49 40 555 00 11',status:'Partner',
+     bTags:['IT & Software'],iTags:['Kunst & Kultur'],bio:'',notes:'Top-Partner. Provision: 15%',
+     memos:[],createdAt:'2026-02-10'},
+  ],
+  offers:[
+    {id:1,title:'Website Relaunch Muster GmbH',contactId:1,agencyId:3,
+     services:['web','seo'],totalValue:8500,myCommission:1275,commissionPct:15,
+     status:'Gesendet',copecartLink:'https://copecart.com/products/demo',
+     notes:'',createdAt:'2026-04-20',validUntil:'2026-05-31',paymentType:'Einmalzahlung'},
+    {id:2,title:'Social Media Bäckerei Zürcher',contactId:2,agencyId:null,
+     services:['sm'],totalValue:1200,myCommission:180,commissionPct:15,
+     status:'Entwurf',copecartLink:'',notes:'',createdAt:'2026-05-01',
+     validUntil:'2026-05-31',paymentType:'Abo monatlich'},
+  ],
+  revenue:[
+    {id:1,offerId:null,description:'Beratungshonorar Muster GmbH',amount:350,date:'2026-04-05',status:'Erhalten',type:'Honorar'},
+    {id:2,offerId:null,description:'Provision Branding-Paket',amount:630,date:'2026-03-10',status:'Erhalten',type:'Provision'},
+  ],
+  blocks:[
+    {id:1,name:'Begrüssung förmlich',category:'Begrüssung',text:'Sehr geehrte Damen und Herren,\n\nvielen Dank für Ihr Interesse. Ich freue mich, Ihnen folgendes Angebot unterbreiten zu dürfen.'},
+    {id:2,name:'Begrüssung locker',category:'Begrüssung',text:'Hallo {{kontakt_vorname}},\n\nschön, dass wir uns kürzlich gesprochen haben! Wie versprochen, hier mein Angebot.'},
+    {id:3,name:'Vermittler-Vorstellung',category:'Einleitung',text:'Als unabhängiger Vermittler verbinde ich KMU mit den besten Agenturen – ohne Aufwand für Sie.'},
+    {id:4,name:'Angebot-Details',category:'Angebot',text:'Basierend auf unserem Gespräch:\n\n📌 Leistung: {{angebot_titel}}\n💰 Investition: {{angebot_wert}}\n✅ Durchführung: {{agentur_name}}'},
+    {id:5,name:'Copecart-Zahlungslink',category:'Zahlung',text:'Sicher bezahlen & Projekt bestätigen:\n\n👉 {{copecart_link}}\n\nKreditkarte, PayPal & Überweisung möglich.'},
+    {id:6,name:'Abschluss & Gruss',category:'Abschluss',text:'Bei Fragen stehe ich jederzeit zur Verfügung.\n\nMit freundlichen Grüssen,\n{{mein_name}}'},
+    {id:7,name:'Follow-Up (1 Woche)',category:'Follow-Up',text:'Hallo {{kontakt_vorname}},\n\nkurze Nachfrage – haben Sie das Angebot prüfen können?\n\nGerne passe ich es bei Bedarf an.'},
+    {id:8,name:'Kauf-Dankeschön',category:'Abschluss',text:'Hallo {{kontakt_vorname}},\n\nherzlichen Dank! Die Agentur meldet sich in Kürze.\n\nBei Fragen immer gerne.\n{{mein_name}}'},
+  ],
+  templates:[
+    {id:1,name:'Erstangebot',subject:'Angebot: {{angebot_titel}} – {{firmen_name}}',blockIds:[2,3,4,5,6],cat:'Angebot'},
+    {id:2,name:'Follow-Up',subject:'Nachfrage: Angebot {{angebot_titel}}',blockIds:[2,7,6],cat:'Follow-Up'},
+    {id:3,name:'Kauf bestätigt',subject:'Ihr Projekt startet – nächste Schritte',blockIds:[2,8,6],cat:'Abschluss'},
+    {id:4,name:'Kaltakquise',subject:'Digitale Dienstleistungen für {{firmen_name}}',blockIds:[1,3,6],cat:'Akquise'},
+  ],
+  quickActions:[
+    {id:'qa1',icon:'📩',label:'Erstangebot senden',desc:'Angebot mit Copecart-Link',tid:1},
+    {id:'qa2',icon:'🔔',label:'Follow-Up senden',desc:'Nach 1 Woche nachfassen',tid:2},
+    {id:'qa3',icon:'🎉',label:'Kauf bestätigen',desc:'Dankeschön nach Abschluss',tid:3},
+    {id:'qa4',icon:'🤝',label:'Kaltakquise',desc:'Erstkontakt neues KMU',tid:4},
+  ],
+  agencies:[
+    {id:'ag1',name:'Pixel Studio GmbH',services:['web','br'],contact:'Lukas Brand',rating:5},
+    {id:'ag2',name:'Werbeatelier Nord',services:['br','pr'],contact:'Sandra Koch',rating:4},
+  ],
+  charities:[
+    {id:'ch1',name:'Viva con Agua',link:'https://www.vivaconagua.org',desc:'Wasser für alle'},
+    {id:'ch2',name:'WWF Deutschland',link:'https://www.wwf.de',desc:'Natur schützen'},
+  ],
+  settings:{myName:'Max Vermittler',myEmail:'info@vermittler.de',defaultCommission:15,currency:'EUR'},
+  nextContactId:4,nextOfferId:3,nextRevenueId:3,nextBlockId:9,nextTmplId:5,
+};
+
+/* ─── Load / Save ──────────────────────────────────────────── */
+// TODO: Supabase Sync – replace this entire block with:
+// const { data } = await supabase.from('crm_data').select().eq('user_id', user.id)
+function loadData(){
+  try{
+    const r=localStorage.getItem(STORE_KEY);
+    return r?JSON.parse(r):DEFAULT;
+  }catch{return DEFAULT;}
+}
+function saveData(){
+  // TODO: Supabase Sync – await supabase.from('crm_data').upsert({user_id, data: D})
+  try{localStorage.setItem(STORE_KEY,JSON.stringify(D));}catch{}
+}
+let D=loadData();
+
+/* ─── Utilities ────────────────────────────────────────────── */
+const fmt=(n)=>new Intl.NumberFormat('de-DE',{style:'currency',currency:D.settings.currency||'EUR',maximumFractionDigits:0}).format(n||0);
+const esc=(s)=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const uid=()=>'id'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function getService(id){return SERVICE_CATALOG.find(s=>s.id===id)||{name:id,icon:'🔧'}}
+
+/* ═══════════════════════════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════════════════════════ */
+let currentPage='dashboard';
+const PAGE_TITLES={
+  dashboard:'Dashboard',contacts:'Kontakte',market:'Marktplatz',
+  emails:'E-Mails',revenue:'Umsatz',admin:'Admin'
+};
+
+function nav(page){
+  if(currentPage===page){return;}
+  // hide old
+  document.getElementById('page-'+currentPage)?.classList.remove('active');
+  // mobile nav
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  // desktop sidebar
+  document.querySelectorAll('.sidebar-tab').forEach(b=>b.classList.remove('active'));
+  const nb=document.getElementById('nb-'+page);
+  const sd=document.getElementById('sd-'+page);
+  if(nb)nb.classList.add('active');
+  if(sd)sd.classList.add('active');
+  // show new
+  const pg=document.getElementById('page-'+page);
+  if(pg){pg.classList.add('active');}
+  // titles
+  const t=PAGE_TITLES[page]||page;
+  document.getElementById('topbar-title').textContent=t;
+  document.getElementById('desktop-title').textContent=t;
+  currentPage=page;
+  // render
+  document.getElementById('content').scrollTop=0;
+  if(page==='dashboard')renderDashboard();
+  else if(page==='contacts')renderContacts();
+  else if(page==='market')renderMarket();
+  else if(page==='emails')renderEmails();
+  else if(page==='revenue')renderRevenue();
+  else if(page==='admin')renderAdmin('agencies');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODAL
+═══════════════════════════════════════════════════════════════ */
+function openModal(title,html){
+  document.getElementById('sheet-title').textContent=title;
+  document.getElementById('sheet-body').innerHTML=html;
+  document.getElementById('overlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeModal(){
+  document.getElementById('overlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+function overlayClick(e){if(e.target===document.getElementById('overlay'))closeModal();}
+
+/* ═══════════════════════════════════════════════════════════════
+   DASHBOARD
+═══════════════════════════════════════════════════════════════ */
+function renderDashboard(){
+  const kmus=D.contacts.filter(c=>c.type==='KMU').length;
+  const ags=D.contacts.filter(c=>c.type==='Agentur').length;
+  const openO=D.offers.filter(o=>['Gesendet','Verhandlung'].includes(o.status)).length;
+  const earned=D.revenue.filter(r=>r.status==='Erhalten').reduce((s,r)=>s+r.amount,0);
+  document.getElementById('dash-stats').innerHTML=`
+    <div class="stat-card stat-blue"><div class="stat-icon">🏢</div><div class="stat-val">${kmus}</div><div class="stat-lbl">KMU-Kunden</div></div>
+    <div class="stat-card stat-violet"><div class="stat-icon">🎨</div><div class="stat-val">${ags}</div><div class="stat-lbl">Agenturen</div></div>
+    <div class="stat-card stat-orange"><div class="stat-icon">📋</div><div class="stat-val">${openO}</div><div class="stat-lbl">Offene Angebote</div></div>
+    <div class="stat-card stat-green"><div class="stat-icon">💰</div><div class="stat-val">${fmt(earned)}</div><div class="stat-lbl">Einnahmen</div></div>
+  `;
+  // Chart
+  const now=new Date();
+  const months=Array.from({length:6},(_,i)=>{
+    const d=new Date(now.getFullYear(),now.getMonth()-5+i,1);
+    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const v=D.revenue.filter(r=>r.date.startsWith(key)&&r.status==='Erhalten').reduce((s,r)=>s+r.amount,0);
+    return{lbl:MONTHS[d.getMonth()],v};
+  });
+  const maxV=Math.max(...months.map(m=>m.v),1);
+  document.getElementById('dash-chart').innerHTML=months.map(m=>`
+    <div class="bar-wrap">
+      <div class="bar" style="height:${Math.max(3,Math.round(m.v/maxV*70))}px" title="${fmt(m.v)}"></div>
+      <div class="bar-lbl">${m.lbl}</div>
+    </div>`).join('');
+  // Recent offers
+  const recent=[...D.offers].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,3);
+  document.getElementById('dash-offers').innerHTML=recent.map(o=>{
+    const c=D.contacts.find(x=>x.id===o.contactId);
+    const col=OFFER_COL[o.status]||'#6b728f';
+    return`<div class="o-item" onclick="nav('market')">
+      <div class="o-stripe" style="background:${col}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="o-title">${esc(o.title)}</div>
+        <div class="o-meta">${esc(c?.name||'?')} · ${o.status}</div>
+      </div>
+      <div class="o-amount">
+        <div class="o-val">${fmt(o.myCommission)}</div>
+        <div style="font-size:11px;color:var(--text3)">Provision</div>
+      </div>
+    </div>`;
+  }).join('')||`<div class="empty">Noch keine Angebote</div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CONTACTS
+═══════════════════════════════════════════════════════════════ */
+let cFilter='Alle';
+function renderContacts(){
+  const q=(document.getElementById('c-search')?.value||'').toLowerCase();
+  const filters=['Alle','KMU','Agentur','Lead','Aktiv','Partner'];
+  document.getElementById('c-filters').innerHTML=filters.map(f=>
+    `<button class="fp${cFilter===f?' on':''}" onclick="cFilter='${f}';renderContacts()">${f}</button>`
+  ).join('');
+  const list=D.contacts.filter(c=>{
+    const mt=cFilter==='Alle'||c.type===cFilter||c.status===cFilter;
+    const ms=!q||(c.name||'').toLowerCase().includes(q)||(c.company||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q)||(c.contact||'').toLowerCase().includes(q);
+    return mt&&ms;
+  });
+  document.getElementById('c-count').textContent=list.length;
+  document.getElementById('c-list').innerHTML=list.map(c=>`
+    <div class="c-item" onclick="openContactDetail(${c.id})">
+      <div class="avatar">${(c.name||'?').charAt(0).toUpperCase()}</div>
+      <div style="flex:1;min-width:0">
+        <div class="c-name">${esc(c.name)}</div>
+        <div class="c-meta">${esc(c.contact||'')}${c.email?(' · '+esc(c.email)):''}</div>
+        <div class="tag-row">
+          ${(c.bTags||[]).map(t=>`<span class="tag-b">${esc(t)}</span>`).join('')}
+          ${(c.iTags||[]).map(t=>`<span class="tag-i">${esc(t)}</span>`).join('')}
+        </div>
+      </div>
+      <span class="badge badge-${(c.status||'').toLowerCase()}">${c.status}</span>
+    </div>`).join('')||`<div class="empty">Keine Kontakte gefunden</div>`;
+}
+
+function openContactDetail(id){
+  // TODO: Supabase Sync – const { data: c } = await supabase.from('contacts').select('*, memos(*), customer_tags(*, tags(*))').eq('id', id).single()
+  const c=D.contacts.find(x=>x.id===id);
+  if(!c)return;
+  const offers=D.offers.filter(o=>o.contactId===id);
+  openModal(c.name,`
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+      <div class="avatar avatar-lg">${(c.name||'?').charAt(0).toUpperCase()}</div>
+      <div>
+        <div class="h2">${esc(c.name)}</div>
+        <span class="badge badge-${(c.status||'').toLowerCase()}">${c.status}</span>
+        <span class="muted" style="margin-left:6px">${c.type}</span>
+      </div>
+    </div>
+    ${c.contact?`<div class="muted" style="margin-bottom:4px">👤 ${esc(c.contact)}</div>`:''}
+    ${c.email?`<a href="mailto:${esc(c.email)}" class="muted" style="display:block;margin-bottom:4px;color:var(--blue)">✉ ${esc(c.email)}</a>`:''}
+    ${c.phone?`<div class="muted" style="margin-bottom:12px">📞 ${esc(c.phone)}</div>`:''}
+    ${(c.bTags||[]).length||(c.iTags||[]).length?`<div class="tag-row" style="margin-bottom:14px">
+      ${(c.bTags||[]).map(t=>`<span class="tag-b">${esc(t)}</span>`).join('')}
+      ${(c.iTags||[]).map(t=>`<span class="tag-i">${esc(t)}</span>`).join('')}
+    </div>`:''}
+    ${c.bio?`<div class="surface" style="margin-bottom:14px;font-size:13px;color:var(--text1);line-height:1.7;white-space:pre-wrap">${esc(c.bio)}</div>`:''}
+    <div class="btn-row" style="margin-bottom:16px">
+      <button class="btn btn-primary" onclick="editContact(${id})">✏️ Bearbeiten</button>
+      <button class="btn" onclick="closeModal();setTimeout(()=>quickEmail(${id}),200)">📧 E-Mail</button>
+      <button class="btn" onclick="openMemos(${id})">📝 Memos (${(c.memos||[]).length})</button>
+    </div>
+    ${offers.length?`<div class="label" style="margin-bottom:8px">Angebote</div>`:''}
+    ${offers.map(o=>`<div style="padding:10px 12px;background:var(--bg2);border-radius:var(--r12);margin-bottom:6px;border-left:3px solid ${OFFER_COL[o.status]||'#6b728f'}">
+      <div class="h3">${esc(o.title)}</div>
+      <div class="muted" style="margin-top:2px">${fmt(o.myCommission)} Provision · ${o.status}</div>
+    </div>`).join('')}
+  `);
+}
+
+function quickEmail(id){
+  nav('emails');
+  setTimeout(()=>{
+    const s=document.getElementById('em-contact');
+    if(s){s.value=id;updateEmailCtx();}
+  },150);
+}
+
+function openContactForm(){
+  _openContactFormWith(null);
+}
+function editContact(id){
+  closeModal();
+  setTimeout(()=>_openContactFormWith(D.contacts.find(x=>x.id===id)),200);
+}
+
+function _openContactFormWith(existing){
+  const isEdit=!!existing;
+  const c=existing||{name:'',type:'KMU',contact:'',email:'',phone:'',status:'Lead',bTags:[],iTags:[],bio:'',notes:''};
+  openModal(isEdit?'Kontakt bearbeiten':'Neuer Kontakt',`
+    <div class="row2">
+      <div class="field"><label class="field-label">Name *</label><input id="cf-name" value="${esc(c.name)}" placeholder="Muster GmbH"></div>
+      <div class="field"><label class="field-label">Typ</label><select id="cf-type">
+        <option${c.type==='KMU'?' selected':''}>KMU</option>
+        <option${c.type==='Agentur'?' selected':''}>Agentur</option>
+        <option${c.type==='Freelancer'?' selected':''}>Freelancer</option>
+      </select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label class="field-label">Ansprechperson</label><input id="cf-contact" value="${esc(c.contact||'')}"></div>
+      <div class="field"><label class="field-label">Status</label><select id="cf-status">
+        ${['Lead','Aktiv','Partner','Inaktiv'].map(s=>`<option${c.status===s?' selected':''}>${s}</option>`).join('')}
+      </select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label class="field-label">E-Mail</label><input id="cf-email" type="email" value="${esc(c.email||'')}"></div>
+      <div class="field"><label class="field-label">Telefon</label><input id="cf-phone" type="tel" value="${esc(c.phone||'')}"></div>
+    </div>
+    <div class="field"><label class="field-label">Business-Tags (Blau)</label>
+      <div class="tag-sel" id="cf-btags">${BIZ_TAGS.map(t=>`<span class="tag-sel-item${(c.bTags||[]).includes(t)?' sel-b':''}" onclick="toggleTag(this,'b')">${esc(t)}</span>`).join('')}</div>
+    </div>
+    <div class="field"><label class="field-label">Interessen-Tags (Orange)</label>
+      <div class="tag-sel" id="cf-itags">${INT_TAGS.map(t=>`<span class="tag-sel-item${(c.iTags||[]).includes(t)?' sel-i':''}" onclick="toggleTag(this,'i')">${esc(t)}</span>`).join('')}</div>
+    </div>
+    <div class="field">
+      <label class="field-label">Kundenprofil / Bio</label>
+      ${!c.bio?`<div class="bio-guide">${BIO_PROMPTS.map((p,i)=>`<div class="bio-guide-row"><div class="bio-num">${i+1}</div><div>${p}</div></div>`).join('')}</div>`:''}
+      <textarea id="cf-bio" rows="5" placeholder="${BIO_PROMPTS.map((p,i)=>`${i+1}. ${p}`).join('\n')}">${esc(c.bio||'')}</textarea>
+    </div>
+    <div class="field"><label class="field-label">Interne Notiz</label>
+      <textarea id="cf-notes" rows="2">${esc(c.notes||'')}</textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary btn-full" onclick="saveContact(${isEdit?c.id:'null'})">${isEdit?'Speichern':'Anlegen'}</button>
+      ${isEdit?`<button class="btn btn-danger" onclick="deleteContact(${c.id})">Löschen</button>`:''}
+    </div>
+  `);
+}
+
+function toggleTag(el,type){
+  if(type==='b')el.classList.toggle('sel-b');
+  else el.classList.toggle('sel-i');
+}
+
+function saveContact(id){
+  // TODO: Supabase Sync – await supabase.from('contacts').upsert({...obj, user_id})
+  const name=document.getElementById('cf-name')?.value?.trim();
+  if(!name){alert('Name ist erforderlich');return;}
+  const bTags=[...document.querySelectorAll('#cf-btags .sel-b')].map(e=>e.textContent);
+  const iTags=[...document.querySelectorAll('#cf-itags .sel-i')].map(e=>e.textContent);
+  const obj={
+    name,type:document.getElementById('cf-type').value,
+    contact:document.getElementById('cf-contact').value,
+    email:document.getElementById('cf-email').value,
+    phone:document.getElementById('cf-phone').value,
+    status:document.getElementById('cf-status').value,
+    bTags,iTags,
+    bio:document.getElementById('cf-bio').value,
+    notes:document.getElementById('cf-notes').value,
+  };
+  if(id!==null){
+    const idx=D.contacts.findIndex(x=>x.id===id);
+    D.contacts[idx]={...D.contacts[idx],...obj};
+  }else{
+    D.contacts.push({...obj,id:D.nextContactId++,memos:[],createdAt:TODAY});
+  }
+  saveData();closeModal();renderContacts();
+}
+
+function deleteContact(id){
+  if(!confirm('Kontakt wirklich löschen?'))return;
+  D.contacts=D.contacts.filter(c=>c.id!==id);
+  saveData();closeModal();renderContacts();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MEMOS
+═══════════════════════════════════════════════════════════════ */
+function openMemos(contactId){
+  // TODO: Supabase Sync – const { data: memos } = await supabase.from('memos').select().eq('contact_id', contactId).order('created_at', {ascending: false})
+  const c=D.contacts.find(x=>x.id===contactId);
+  if(!c)return;
+  c.memos=c.memos||[];
+  openModal(`Memos – ${c.name}`,`
+    <div class="field"><label class="field-label">Typ</label>
+      <select id="mt-type">${MEMO_TYPES.map(t=>`<option>${t}</option>`).join('')}</select>
+    </div>
+    <div class="field"><label class="field-label">Inhalt</label>
+      <textarea id="mt-content" rows="3" placeholder="Details…"></textarea>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveMemo(${contactId})" style="margin-bottom:16px">+ Memo speichern</button>
+    <div id="memo-list">
+      ${c.memos.slice().reverse().map(m=>`
+        <div class="memo">
+          <div class="memo-type">${MEMO_ICONS[m.type]||'💬'} ${m.type}</div>
+          <div class="memo-text">${esc(m.content)}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+            <div class="memo-date">${m.date}</div>
+            <button class="btn btn-sm btn-ghost" style="color:var(--red);min-height:32px" onclick="deleteMemo(${contactId},'${m.id}')">✕ Löschen</button>
+          </div>
+        </div>`).join('')||`<div class="empty">Noch keine Memos</div>`}
+    </div>
+  `);
+}
+
+function saveMemo(cid){
+  // TODO: Supabase Sync – await supabase.from('memos').insert({contact_id: cid, type, content, date: TODAY})
+  const type=document.getElementById('mt-type')?.value;
+  const content=document.getElementById('mt-content')?.value?.trim();
+  if(!content)return;
+  const c=D.contacts.find(x=>x.id===cid);
+  c.memos=c.memos||[];
+  c.memos.push({id:uid(),type,content,date:TODAY});
+  saveData();openMemos(cid);
+}
+
+function deleteMemo(cid,mid){
+  // TODO: Supabase Sync – await supabase.from('memos').delete().eq('id', mid)
+  const c=D.contacts.find(x=>x.id===cid);
+  c.memos=(c.memos||[]).filter(m=>m.id!==mid);
+  saveData();openMemos(cid);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MARKET / OFFERS
+═══════════════════════════════════════════════════════════════ */
+let oFilter='Alle';
+function renderMarket(){
+  // Service cards
+  document.getElementById('service-cards').innerHTML=SERVICE_CATALOG.map(s=>`
+    <div class="market-card" onclick="openOfferForm('${s.id}')">
+      <div class="market-icon">${s.icon}</div>
+      <div class="market-name">${s.name}</div>
+      <div class="market-desc">${s.desc}</div>
+      <div class="market-price">${s.price}</div>
+    </div>`).join('');
+  // Agency partners
+  const agList=document.getElementById('agency-list-market');
+  const myAgs=D.contacts.filter(c=>c.type==='Agentur');
+  const adminAgs=(D.agencies||[]).filter(a=>!myAgs.find(c=>c.name===a.name));
+  const combined=[...myAgs.map(c=>({name:c.name,contact:c.contact,email:c.email,isContact:true,id:c.id})),...adminAgs.map(a=>({name:a.name,contact:a.contact,email:'',isContact:false,id:a.id}))];
+  agList.innerHTML=combined.map(a=>`
+    <div class="agency-card">
+      <div class="agency-icon">🏢</div>
+      <div style="flex:1;min-width:0">
+        <div class="h3">${esc(a.name)}</div>
+        <div class="muted">${esc(a.contact||'')}</div>
+      </div>
+      <span class="badge badge-partner">Partner</span>
+    </div>`).join('')||`<div class="empty">Noch keine Agentur-Partner</div>`;
+  // Offer filters + list
+  const fLabels=['Alle',...OFFER_ST];
+  document.getElementById('o-filters').innerHTML=fLabels.map(f=>
+    `<button class="fp${oFilter===f?' on':''}" onclick="oFilter='${f}';renderMarket()">${f}</button>`
+  ).join('');
+  const list=D.offers.filter(o=>oFilter==='Alle'||o.status===oFilter);
+  document.getElementById('o-list').innerHTML=list.map(o=>{
+    const c=D.contacts.find(x=>x.id===o.contactId);
+    const ag=o.agencyId?D.contacts.find(x=>x.id===o.agencyId):null;
+    const col=OFFER_COL[o.status]||'#6b728f';
+    return`<div class="o-item" onclick="openOfferDetail(${o.id})">
+      <div class="o-stripe" style="background:${col}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="o-title">${esc(o.title)}</div>
+        <div class="o-meta">${esc(c?.name||'?')} ${ag?'→ '+esc(ag.name):''}· bis ${o.validUntil||'–'}</div>
+        <div class="tag-row" style="margin-top:4px">${(o.services||[]).map(sid=>`<span class="tag-b" style="font-size:11px">${getService(sid).icon} ${getService(sid).name}</span>`).join('')}</div>
+      </div>
+      <div class="o-amount">
+        <div class="o-val">${fmt(o.totalValue)}</div>
+        <div class="o-prov">${fmt(o.myCommission)}</div>
+      </div>
+    </div>`;
+  }).join('')||`<div class="empty">Keine Angebote</div>`;
+}
+
+function openOfferDetail(id){
+  // TODO: Supabase Sync – const { data: o } = await supabase.from('offers').select('*, contacts(*), agencies(*)').eq('id', id).single()
+  const o=D.offers.find(x=>x.id===id);
+  if(!o)return;
+  const c=D.contacts.find(x=>x.id===o.contactId);
+  const ag=o.agencyId?D.contacts.find(x=>x.id===o.agencyId):null;
+  const col=OFFER_COL[o.status]||'#6b728f';
+  openModal(o.title,`
+    <div class="row2" style="margin-bottom:14px">
+      <div><div class="tiny">KMU-Kunde</div><div class="h3" style="margin-top:2px">${esc(c?.name||'—')}</div></div>
+      <div><div class="tiny">Agentur</div><div class="h3" style="margin-top:2px">${esc(ag?.name||'—')}</div></div>
+      <div><div class="tiny">Gesamtwert</div><div class="h3" style="margin-top:2px">${fmt(o.totalValue)}</div></div>
+      <div><div class="tiny">Provision</div><div class="h3" style="margin-top:2px;color:var(--blue)">${fmt(o.myCommission)}</div></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <span class="badge" style="background:${col}1a;color:${col}">${o.status}</span>
+      <span class="muted" style="margin-left:8px">${o.paymentType}</span>
+    </div>
+    ${o.services?.length?`<div class="tag-row" style="margin-bottom:14px">${o.services.map(sid=>`<span class="tag-b">${getService(sid).icon} ${getService(sid).name}</span>`).join('')}</div>`:''}
+    ${o.copecartLink?`<div class="copecart-box">
+      <div class="copecart-lbl">🛒 Copecart-Link</div>
+      <a href="${esc(o.copecartLink)}" target="_blank" style="font-size:13px;word-break:break-all;color:var(--blue)">${esc(o.copecartLink)}</a>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn btn-sm" onclick="navigator.clipboard?.writeText('${esc(o.copecartLink)}')">📋 Kopieren</button>
+      </div>
+    </div>`:''}
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="closeModal();setTimeout(()=>editOffer(${id}),200)">✏️ Bearbeiten</button>
+      ${!['Gewonnen','Verloren','Storniert'].includes(o.status)?`<button class="btn btn-success" onclick="markWon(${id})">✓ Gewonnen</button>`:''}
+      ${c?`<button class="btn" onclick="closeModal();setTimeout(()=>quickEmail(${c.id}),200)">📧 E-Mail</button>`:''}
+    </div>
+  `);
+}
+
+function openOfferForm(preService){
+  const kmus=D.contacts.filter(c=>c.type==='KMU');
+  const ags=D.contacts.filter(c=>c.type==='Agentur'||c.type==='Freelancer');
+  const adminAgs=(D.agencies||[]).filter(a=>!ags.find(c=>c.name===a.name));
+  openModal('Neues Angebot',`
+    <div class="field"><label class="field-label">Titel *</label>
+      <input id="of-title" placeholder="z.B. Website Relaunch Muster GmbH"></div>
+    <div class="row2">
+      <div class="field"><label class="field-label">KMU-Kunde</label>
+        <select id="of-cid"><option value="">— wählen —</option>
+          ${kmus.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label class="field-label">Agentur</label>
+        <select id="of-aid"><option value="">— keine —</option>
+          ${ags.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
+          ${adminAgs.map(a=>`<option value="adm_${a.id}">${esc(a.name)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="field"><label class="field-label">Dienstleistungen</label>
+      <div class="tag-sel" id="of-svc">${SERVICE_CATALOG.map(s=>`<span class="tag-sel-item${s.id===preService?' sel-b':''}" onclick="this.classList.toggle('sel-b')">${s.icon} ${s.name}</span>`).join('')}</div>
+    </div>
+    <div class="row2">
+      <div class="field"><label class="field-label">Gesamtwert (${D.settings.currency||'EUR'})</label>
+        <input id="of-val" type="number" value="0" oninput="calcComm()"></div>
+      <div class="field"><label class="field-label">Provision %</label>
+        <input id="of-pct" type="number" value="${D.settings.defaultCommission||15}" oninput="calcComm()"></div>
+    </div>
+    <div class="field"><label class="field-label">Meine Provision</label>
+      <div id="of-comm" style="background:var(--bg3);border:1px solid var(--border-hi);border-radius:var(--r12);padding:12px 14px;font-weight:800;font-size:18px;color:var(--blue)">${fmt(0)}</div>
+    </div>
+    <div class="row2">
+      <div class="field"><label class="field-label">Status</label>
+        <select id="of-st">${OFFER_ST.map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label class="field-label">Zahlungstyp</label>
+        <select id="of-pt">${PAY_TYPES.map(t=>`<option>${t}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label class="field-label">Gültig bis</label>
+      <input id="of-valid" type="date"></div>
+    <div class="field"><label class="field-label">Copecart-Link</label>
+      <input id="of-cc" type="url" placeholder="https://copecart.com/products/…"></div>
+    <div class="field"><label class="field-label">Notizen</label>
+      <textarea id="of-notes" rows="2"></textarea></div>
+    <button class="btn btn-primary btn-full" onclick="saveOffer(null)">Angebot anlegen</button>
+  `);
+}
+
+function editOffer(id){
+  const o=D.offers.find(x=>x.id===id);
+  if(!o)return;
+  // Simple re-use: pre-fill the "new" form
+  openOfferForm(null);
+  setTimeout(()=>{
+    document.getElementById('of-title').value=o.title||'';
+    document.getElementById('of-cid').value=o.contactId||'';
+    document.getElementById('of-aid').value=o.agencyId||'';
+    document.getElementById('of-val').value=o.totalValue||0;
+    document.getElementById('of-pct').value=o.commissionPct||15;
+    document.getElementById('of-st').value=o.status||'Entwurf';
+    document.getElementById('of-pt').value=o.paymentType||'Einmalzahlung';
+    document.getElementById('of-valid').value=o.validUntil||'';
+    document.getElementById('of-cc').value=o.copecartLink||'';
+    document.getElementById('of-notes').value=o.notes||'';
+    calcComm();
+    document.getElementById('sheet-title').textContent='Angebot bearbeiten';
+    // mark services
+    document.querySelectorAll('#of-svc .tag-sel-item').forEach(el=>{
+      const svcName=el.textContent.trim();
+      const svc=SERVICE_CATALOG.find(s=>el.textContent.includes(s.icon));
+      if(svc&&(o.services||[]).includes(svc.id))el.classList.add('sel-b');
+    });
+    // replace save button
+    const btn=document.querySelector('#sheet-body .btn-primary');
+    if(btn){btn.textContent='Speichern';btn.setAttribute('onclick',`saveOffer(${id})`);}
+  },50);
+}
+
+function calcComm(){
+  const v=parseFloat(document.getElementById('of-val')?.value||0);
+  const p=parseFloat(document.getElementById('of-pct')?.value||0);
+  const el=document.getElementById('of-comm');
+  if(el)el.textContent=fmt(Math.round(v*p/100));
+}
+
+function saveOffer(id){
+  // TODO: Supabase Sync – await supabase.from('offers').upsert({...obj, user_id})
+  const title=document.getElementById('of-title')?.value?.trim();
+  if(!title){alert('Titel erforderlich');return;}
+  const v=parseFloat(document.getElementById('of-val').value)||0;
+  const p=parseFloat(document.getElementById('of-pct').value)||0;
+  const svcs=[...document.querySelectorAll('#of-svc .sel-b')].map(el=>{
+    const svc=SERVICE_CATALOG.find(s=>el.textContent.includes(s.icon));
+    return svc?svc.id:null;
+  }).filter(Boolean);
+  const agV=document.getElementById('of-aid').value;
+  const obj={
+    title,contactId:parseInt(document.getElementById('of-cid').value)||null,
+    agencyId:agV&&!agV.startsWith('adm_')?parseInt(agV):null,
+    services:svcs,totalValue:v,commissionPct:p,myCommission:Math.round(v*p/100),
+    status:document.getElementById('of-st').value,
+    paymentType:document.getElementById('of-pt').value,
+    validUntil:document.getElementById('of-valid').value,
+    copecartLink:document.getElementById('of-cc').value,
+    notes:document.getElementById('of-notes').value,
+  };
+  if(id!==null){
+    const idx=D.offers.findIndex(x=>x.id===id);
+    D.offers[idx]={...D.offers[idx],...obj};
+  }else{
+    D.offers.push({...obj,id:D.nextOfferId++,createdAt:TODAY});
+  }
+  saveData();closeModal();renderMarket();
+}
+
+function markWon(id){
+  // TODO: Supabase Sync – await supabase.from('offers').update({status:'Gewonnen'}).eq('id', id)
+  const o=D.offers.find(x=>x.id===id);
+  if(!o)return;
+  o.status='Gewonnen';
+  if(!D.revenue.some(r=>r.offerId===id)){
+    // TODO: Supabase Sync – await supabase.from('revenue').insert({offer_id: id, amount: o.myCommission, status: 'Ausstehend', type: 'Provision'})
+    D.revenue.push({id:D.nextRevenueId++,offerId:id,
+      description:`Provision – ${o.title}`,
+      amount:o.myCommission,date:TODAY,status:'Ausstehend',type:'Provision'});
+  }
+  saveData();closeModal();renderMarket();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EMAILS
+═══════════════════════════════════════════════════════════════ */
+let emCtx={contact:null,offer:null};
+let emTab='compose';
+
+function renderEmails(){
+  const s=document.getElementById('em-contact');
+  s.innerHTML=`<option value="">— Kontakt wählen —</option>`+
+    D.contacts.filter(c=>c.email).map(c=>`<option value="${c.id}">${esc(c.name)} (${esc(c.email)})</option>`).join('');
+}
+
+function updateEmailCtx(){
+  const id=parseInt(document.getElementById('em-contact').value);
+  if(!id){
+    document.getElementById('em-hint').style.display='block';
+    document.getElementById('em-qa').style.display='none';
+    document.getElementById('em-composer').style.display='none';
+    return;
+  }
+  // TODO: Supabase Sync – const { data: contact } = await supabase.from('contacts').select().eq('id', id).single()
+  emCtx.contact=D.contacts.find(c=>c.id===id)||null;
+  emCtx.offer=[...D.offers].filter(o=>o.contactId===id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0]||null;
+  document.getElementById('em-hint').style.display='none';
+  document.getElementById('em-qa').style.display='block';
+  document.getElementById('em-composer').style.display='block';
+  // Quick actions
+  document.getElementById('em-qa-list').innerHTML=D.quickActions.map(qa=>`
+    <div class="qa-btn" onclick="applyQA('${qa.id}')">
+      <div class="qa-ico">${qa.icon}</div>
+      <div><div class="qa-label">${qa.label}</div><div class="qa-desc">${qa.desc}</div></div>
+    </div>`).join('');
+  renderEmailContent();
+}
+
+function applyQA(qaId){
+  const qa=D.quickActions.find(x=>x.id===qaId);
+  if(qa)applyTemplate(qa.tid);
+  setEmailTab('compose');
+}
+
+function setEmailTab(t){
+  emTab=t;
+  ['compose','blocks','templates'].forEach(id=>{
+    document.getElementById('etab-btn-'+id).classList.toggle('on',id===t);
+    document.getElementById('etab-'+id).style.display=id===t?'block':'none';
+  });
+  renderEmailContent();
+}
+
+function renderEmailContent(){
+  if(emTab==='blocks'){
+    const cats=BCAT.filter(cat=>D.blocks.some(b=>b.category===cat));
+    document.getElementById('etab-blocks').innerHTML=cats.map(cat=>`
+      <div class="label" style="margin:12px 0 6px">${cat}</div>
+      <div class="block-library">${D.blocks.filter(b=>b.category===cat).map(b=>`
+        <div class="block-item" onclick="insertBlock(${b.id})">
+          <div class="block-name">${esc(b.name)}</div>
+          <div class="block-prev">${esc(b.text.replace(/\n/g,' '))}</div>
+        </div>`).join('')}</div>`).join('');
+  }
+  if(emTab==='templates'){
+    document.getElementById('etab-templates').innerHTML=D.templates.map(t=>`
+      <div class="card-sm" style="cursor:pointer" onclick="applyTemplate(${t.id})">
+        <div style="display:flex;justify-content:space-between">
+          <div class="h3">${esc(t.name)}</div>
+          <div class="tiny">${t.blockIds.length} Bausteine</div>
+        </div>
+        <div class="muted" style="margin-top:4px">${esc(t.subject)}</div>
+      </div>`).join('');
+  }
+}
+
+function fillVars(txt){
+  const c=emCtx.contact||{};
+  const o=emCtx.offer||{};
+  const ag=o.agencyId?D.contacts.find(x=>x.id===o.agencyId):null;
+  return txt
+    .replace(/{{firmen_name}}/g,c.name||'')
+    .replace(/{{kontakt_vorname}}/g,(c.contact||'').split(' ')[0]||'')
+    .replace(/{{angebot_titel}}/g,o.title||'')
+    .replace(/{{angebot_wert}}/g,o.totalValue?fmt(o.totalValue):'')
+    .replace(/{{agentur_name}}/g,ag?.name||'')
+    .replace(/{{copecart_link}}/g,o.copecartLink||'')
+    .replace(/{{mein_name}}/g,D.settings.myName||'');
+}
+
+function applyTemplate(id){
+  const t=D.templates.find(x=>x.id===id);
+  if(!t)return;
+  const body=t.blockIds.map(bid=>D.blocks.find(b=>b.id===bid)?.text||'').filter(Boolean).join('\n\n');
+  const sub=document.getElementById('em-subject');
+  const bdy=document.getElementById('em-body');
+  if(sub)sub.value=fillVars(t.subject);
+  if(bdy)bdy.value=fillVars(body);
+  setEmailTab('compose');
+}
+
+function insertBlock(id){
+  const b=D.blocks.find(x=>x.id===id);
+  if(!b)return;
+  const ta=document.getElementById('em-body');
+  if(!ta)return;
+  ta.value=(ta.value?ta.value+'\n\n':'')+fillVars(b.text);
+  setEmailTab('compose');
+}
+
+let varsVisible=false;
+function toggleVars(){
+  varsVisible=!varsVisible;
+  const el=document.getElementById('em-vars');
+  if(!el)return;
+  el.style.display=varsVisible?'flex':'none';
+  if(varsVisible){
+    el.style.flexWrap='wrap';
+    el.innerHTML=VARS.map(v=>`<span class="var-pill" onclick="insertVar('${v.k}')">${v.l}</span>`).join('');
+  }
+}
+function insertVar(key){
+  const ta=document.getElementById('em-body');
+  if(!ta)return;
+  const s=ta.selectionStart,e=ta.selectionEnd;
+  ta.value=ta.value.slice(0,s)+key+ta.value.slice(e);
+  ta.focus();ta.setSelectionRange(s+key.length,s+key.length);
+}
+
+function doMailto(){
+  const to=emCtx.contact?.email||'';
+  const sub=document.getElementById('em-subject')?.value||'';
+  const body=document.getElementById('em-body')?.value||'';
+  window.location.href=`mailto:${to}?subject=${encodeURIComponent(sub)}&body=${encodeURIComponent(body)}`;
+}
+function doGmail(){
+  const to=emCtx.contact?.email||'';
+  const sub=document.getElementById('em-subject')?.value||'';
+  const body=document.getElementById('em-body')?.value||'';
+  window.open(`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(to)}&su=${encodeURIComponent(sub)}&body=${encodeURIComponent(body)}`,'_blank');
+}
+function doCopy(){
+  const sub=document.getElementById('em-subject')?.value||'';
+  const body=document.getElementById('em-body')?.value||'';
+  navigator.clipboard?.writeText(`Betreff: ${sub}\n\n${body}`);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   REVENUE
+═══════════════════════════════════════════════════════════════ */
+let revF='Alle';
+function setRevF(f,btn){
+  revF=f;
+  document.querySelectorAll('#page-revenue .fp').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderRevenue();
+}
+
+function renderRevenue(){
+  // TODO: Supabase Sync – const { data: revenue } = await supabase.from('revenue').select().eq('user_id', user.id).order('date', {ascending: false})
+  const earned=D.revenue.filter(r=>r.status==='Erhalten').reduce((s,r)=>s+r.amount,0);
+  const pend=D.revenue.filter(r=>r.status==='Ausstehend').reduce((s,r)=>s+r.amount,0);
+  document.getElementById('rev-stats').innerHTML=`
+    <div class="stat-card stat-green"><div class="stat-icon">✅</div><div class="stat-val">${fmt(earned)}</div><div class="stat-lbl">Erhalten</div></div>
+    <div class="stat-card stat-orange"><div class="stat-icon">⏳</div><div class="stat-val">${fmt(pend)}</div><div class="stat-lbl">Ausstehend</div></div>
+  `;
+  // Monthly
+  const now=new Date();
+  const months=Array.from({length:6},(_,i)=>{
+    const d=new Date(now.getFullYear(),now.getMonth()-5+i,1);
+    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const e=D.revenue.filter(r=>r.date.startsWith(key)&&r.status==='Erhalten').reduce((s,r)=>s+r.amount,0);
+    const p=D.revenue.filter(r=>r.date.startsWith(key)&&r.status==='Ausstehend').reduce((s,r)=>s+r.amount,0);
+    return{lbl:`${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`,e,p};
+  }).reverse();
+  document.getElementById('rev-monthly').innerHTML=months.map(m=>`
+    <div class="mgcell">${m.lbl}</div>
+    <div class="mgcell" style="color:${m.e?'var(--green)':'var(--text3)'}">${m.e?fmt(m.e):'–'}</div>
+    <div class="mgcell" style="color:${m.p?'var(--amber)':'var(--text3)'}">${m.p?fmt(m.p):'–'}</div>
+  `).join('');
+  // List
+  const list=D.revenue.filter(r=>revF==='Alle'||r.status===revF).sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('rev-list').innerHTML=list.map(r=>`
+    <div class="rev-row">
+      <div class="rev-ico">${r.type==='Provision'?'💼':r.type==='Honorar'?'📄':r.type==='Retainer'?'🔄':'💰'}</div>
+      <div style="flex:1;min-width:0">
+        <div class="h3" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(r.description)}</div>
+        <div class="tiny">${r.date} · ${r.type}</div>
+      </div>
+      <div class="rev-amt ${r.status==='Erhalten'?'amt-green':'amt-amber'}">${fmt(r.amount)}</div>
+      ${r.status==='Ausstehend'?`<button class="btn btn-sm btn-success" style="min-height:36px" onclick="markRevOk(${r.id})">✓</button>`:''}
+      <button class="btn btn-sm btn-ghost" style="color:var(--red);min-height:36px" onclick="delRev(${r.id})">✕</button>
+    </div>`).join('')||`<div class="empty">Keine Einträge</div>`;
+}
+
+function markRevOk(id){
+  // TODO: Supabase Sync – await supabase.from('revenue').update({status:'Erhalten'}).eq('id', id)
+  const r=D.revenue.find(x=>x.id===id);if(r)r.status='Erhalten';
+  saveData();renderRevenue();
+}
+function delRev(id){
+  if(!confirm('Eintrag löschen?'))return;
+  // TODO: Supabase Sync – await supabase.from('revenue').delete().eq('id', id)
+  D.revenue=D.revenue.filter(r=>r.id!==id);
+  saveData();renderRevenue();
+}
+
+function openRevenueForm(){
+  openModal('Einnahme erfassen',`
+    <div class="field"><label class="field-label">Beschreibung</label>
+      <input id="rv-desc" placeholder="z.B. Provision – Website Relaunch"></div>
+    <div class="row2">
+      <div class="field"><label class="field-label">Betrag (${D.settings.currency||'EUR'})</label>
+        <input id="rv-amt" type="number" value="0"></div>
+      <div class="field"><label class="field-label">Typ</label>
+        <select id="rv-type">${['Provision','Honorar','Retainer','Sonstiges'].map(t=>`<option>${t}</option>`).join('')}</select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label class="field-label">Datum</label>
+        <input id="rv-date" type="date" value="${TODAY}"></div>
+      <div class="field"><label class="field-label">Status</label>
+        <select id="rv-st"><option>Ausstehend</option><option>Erhalten</option></select></div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveRevenue()">Speichern</button>
+  `);
+}
+
+function saveRevenue(){
+  // TODO: Supabase Sync – await supabase.from('revenue').insert({...obj, user_id})
+  const desc=document.getElementById('rv-desc')?.value?.trim();
+  if(!desc){alert('Beschreibung erforderlich');return;}
+  D.revenue.push({
+    id:D.nextRevenueId++,offerId:null,
+    description:desc,
+    amount:parseFloat(document.getElementById('rv-amt').value)||0,
+    type:document.getElementById('rv-type').value,
+    date:document.getElementById('rv-date').value||TODAY,
+    status:document.getElementById('rv-st').value,
+  });
+  saveData();closeModal();renderRevenue();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ADMIN
+═══════════════════════════════════════════════════════════════ */
+let adminTabName='agencies';
+function renderAdmin(tab){
+  if(tab)adminTabName=tab;
+  const el=document.getElementById('admin-content');
+  // Tab buttons
+  ['agencies','blocks','settings'].forEach(t=>{
+    document.getElementById('atab-btn-'+t)?.classList.toggle('on',t===adminTabName);
+  });
+
+  if(adminTabName==='agencies'){
+    const agencies=D.agencies||[];
+    const charities=D.charities||[];
+    el.innerHTML=`
+      <div class="sec"><span class="label">Agentur-Partner (${agencies.length})</span>
+        <button class="btn btn-sm btn-primary" onclick="addAgency()">+ Neu</button></div>
+      ${agencies.map((a,i)=>`
+        <div class="adm-item">
+          <div class="agency-icon" style="width:38px;height:38px;font-size:16px">🏢</div>
+          <div class="adm-item-info">
+            <div class="h3">${esc(a.name)}</div>
+            <div class="tiny">${esc(a.contact||'')}${a.contact&&a.services?.length?' · ':''}${(a.services||[]).map(s=>getService(s).name).join(', ')}</div>
+          </div>
+          <button class="btn btn-sm btn-ghost" onclick="editAgency(${i})">✏️</button>
+        </div>`).join('')||`<div class="empty">Noch keine Agenturen</div>`}
+      <div class="divider"></div>
+      <div class="sec"><span class="label">Charity-Partner (${charities.length})</span>
+        <button class="btn btn-sm btn-primary" onclick="addCharity()">+ Neu</button></div>
+      ${charities.map((c,i)=>`
+        <div class="adm-item">
+          <div class="agency-icon" style="width:38px;height:38px;font-size:16px">💛</div>
+          <div class="adm-item-info">
+            <div class="h3">${esc(c.name)}</div>
+            <a href="${esc(c.link)}" target="_blank" class="tiny" style="color:var(--blue)">${esc(c.link)}</a>
+          </div>
+          <button class="btn btn-sm btn-ghost" onclick="editCharity(${i})">✏️</button>
+        </div>`).join('')||`<div class="empty">Noch keine Charities</div>`}
+    `;
+  }else if(adminTabName==='blocks'){
+    el.innerHTML=`
+      <div class="sec"><span class="label">Textbausteine (${D.blocks.length})</span>
+        <button class="btn btn-sm btn-primary" onclick="addBlock()">+ Neu</button></div>
+      ${BCAT.filter(cat=>D.blocks.some(b=>b.category===cat)).map(cat=>`
+        <div class="label" style="margin:12px 0 6px;font-size:10px">${cat}</div>
+        ${D.blocks.filter(b=>b.category===cat).map(b=>`
+          <div class="adm-item">
+            <div class="adm-item-info">
+              <div class="h3">${esc(b.name)}</div>
+              <div class="tiny" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:200px">${esc(b.text.replace(/\n/g,' '))}</div>
+            </div>
+            <button class="btn btn-sm btn-ghost" onclick="editBlock(${b.id})">✏️</button>
+            <button class="btn btn-sm btn-ghost" style="color:var(--red)" onclick="delBlock(${b.id})">✕</button>
+          </div>`).join('')}`).join('')}
+    `;
+  }else if(adminTabName==='settings'){
+    el.innerHTML=`
+      <div class="field" style="margin-top:4px"><label class="field-label">Mein Name</label>
+        <input id="st-name" value="${esc(D.settings.myName||'')}"></div>
+      <div class="field"><label class="field-label">Meine E-Mail</label>
+        <input id="st-email" type="email" value="${esc(D.settings.myEmail||'')}"></div>
+      <div class="row2">
+        <div class="field"><label class="field-label">Standard-Provision %</label>
+          <input id="st-comm" type="number" value="${D.settings.defaultCommission||15}"></div>
+        <div class="field"><label class="field-label">Währung</label>
+          <select id="st-cur">
+            <option${D.settings.currency==='EUR'?' selected':''}>EUR</option>
+            <option${D.settings.currency==='CHF'?' selected':''}>CHF</option>
+            <option${D.settings.currency==='USD'?' selected':''}>USD</option>
+          </select></div>
+      </div>
+      <button class="btn btn-primary" onclick="saveSettings()" style="margin-bottom:20px">💾 Speichern</button>
+      <div class="divider"></div>
+      <div class="copecart-box" style="margin-top:14px">
+        <div class="copecart-lbl">🛒 Copecart-Workflow</div>
+        <div style="font-size:13px;color:var(--text1);line-height:1.8">
+          1. Produkt in Copecart anlegen<br>
+          2. Checkout-Link im Angebot hinterlegen<br>
+          3. Copecart-Link an Kunden senden<br>
+          4. Copecart erstellt Rechnung & verarbeitet Zahlung<br>
+          5. Provision als „Erhalten" markieren
+        </div>
+        <a href="https://app.copecart.com" target="_blank" class="btn btn-sm" style="margin-top:12px;color:var(--amber);border-color:rgba(247,201,107,.3);background:var(--amber-d)">Copecart Dashboard →</a>
+      </div>
+      <div class="divider"></div>
+      <div class="label" style="margin-bottom:8px;margin-top:4px">🗄️ Supabase-Vorbereitung</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.8;background:var(--bg2);border-radius:var(--r12);padding:14px">
+        Alle Datenstellen im Code sind mit <code style="background:var(--bg3);padding:1px 5px;border-radius:4px;color:var(--violet)">// TODO: Supabase Sync</code> markiert.<br><br>
+        Wenn du bereit bist, ersetze den <code style="background:var(--bg3);padding:1px 5px;border-radius:4px;color:var(--violet)">localStorage</code>-Block durch die Supabase-Client-Initialisierung und tausche jeden markierten API-Call aus.
+      </div>
+    `;
+  }
+}
+
+function setAdminTab(t){adminTabName=t;renderAdmin();}
+
+function saveSettings(){
+  // TODO: Supabase Sync – await supabase.from('admin_settings').upsert({user_id, ...D.settings})
+  D.settings.myName=document.getElementById('st-name')?.value||'';
+  D.settings.myEmail=document.getElementById('st-email')?.value||'';
+  D.settings.defaultCommission=parseInt(document.getElementById('st-comm')?.value)||15;
+  D.settings.currency=document.getElementById('st-cur')?.value||'EUR';
+  saveData();alert('Gespeichert!');
+}
+
+function addAgency(){_agencyForm(null);}
+function editAgency(i){_agencyForm(i);}
+function _agencyForm(i){
+  const a=i!==null?(D.agencies||[])[i]:{id:uid(),name:'',contact:'',services:[]};
+  openModal(i!==null?'Agentur bearbeiten':'Neue Agentur',`
+    <div class="field"><label class="field-label">Name *</label><input id="ag-name" value="${esc(a.name)}" placeholder="Pixel Studio GmbH"></div>
+    <div class="field"><label class="field-label">Kontaktperson</label><input id="ag-contact" value="${esc(a.contact||'')}" placeholder="Max Muster"></div>
+    <div class="field"><label class="field-label">Dienstleistungen</label>
+      <div class="tag-sel" id="ag-svcs">${SERVICE_CATALOG.map(s=>`<span class="tag-sel-item${(a.services||[]).includes(s.id)?' sel-b':''}" onclick="this.classList.toggle('sel-b')">${s.icon} ${s.name}</span>`).join('')}</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary btn-full" onclick="saveAgency(${i})">Speichern</button>
+      ${i!==null?`<button class="btn btn-danger" onclick="delAgency(${i})">Löschen</button>`:''}
+    </div>
+  `);
+}
+function saveAgency(i){
+  // TODO: Supabase Sync – await supabase.from('agencies').upsert({...obj, user_id})
+  D.agencies=D.agencies||[];
+  const name=document.getElementById('ag-name')?.value?.trim();
+  if(!name)return;
+  const svcs=[...document.querySelectorAll('#ag-svcs .sel-b')].map(el=>{const s=SERVICE_CATALOG.find(x=>el.textContent.includes(x.icon));return s?s.id:null;}).filter(Boolean);
+  const obj={id:i!==null?D.agencies[i].id:uid(),name,contact:document.getElementById('ag-contact')?.value||'',services:svcs};
+  if(i!==null)D.agencies[i]=obj;else D.agencies.push(obj);
+  saveData();closeModal();renderAdmin();
+}
+function delAgency(i){
+  if(!confirm('Löschen?'))return;
+  D.agencies.splice(i,1);saveData();renderAdmin();
+}
+
+function addCharity(){_charityForm(null);}
+function editCharity(i){_charityForm(i);}
+function _charityForm(i){
+  const c=i!==null?(D.charities||[])[i]:{id:uid(),name:'',link:'',desc:''};
+  openModal(i!==null?'Charity bearbeiten':'Neue Charity',`
+    <div class="field"><label class="field-label">Name *</label><input id="ch-name" value="${esc(c.name)}" placeholder="Viva con Agua"></div>
+    <div class="field"><label class="field-label">Link</label><input id="ch-link" type="url" value="${esc(c.link||'')}" placeholder="https://…"></div>
+    <div class="field"><label class="field-label">Beschreibung</label><input id="ch-desc" value="${esc(c.desc||'')}" placeholder="Kurzbeschreibung"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary btn-full" onclick="saveCharity(${i})">Speichern</button>
+      ${i!==null?`<button class="btn btn-danger" onclick="delCharity(${i})">Löschen</button>`:''}
+    </div>
+  `);
+}
+function saveCharity(i){
+  // TODO: Supabase Sync – await supabase.from('charities').upsert({...obj, user_id})
+  D.charities=D.charities||[];
+  const name=document.getElementById('ch-name')?.value?.trim();
+  if(!name)return;
+  const obj={id:i!==null?D.charities[i].id:uid(),name,link:document.getElementById('ch-link')?.value||'',desc:document.getElementById('ch-desc')?.value||''};
+  if(i!==null)D.charities[i]=obj;else D.charities.push(obj);
+  saveData();closeModal();renderAdmin();
+}
+function delCharity(i){if(!confirm('Löschen?'))return;D.charities.splice(i,1);saveData();renderAdmin();}
+
+function addBlock(){_blockForm(null);}
+function editBlock(id){_blockForm(D.blocks.find(x=>x.id===id));}
+function _blockForm(existing){
+  const b=existing||{name:'',category:'Begrüssung',text:''};
+  openModal(existing?'Baustein bearbeiten':'Neuer Baustein',`
+    <div class="row2">
+      <div class="field"><label class="field-label">Name *</label><input id="bl-name" value="${esc(b.name)}" placeholder="Begrüssung förmlich"></div>
+      <div class="field"><label class="field-label">Kategorie</label>
+        <select id="bl-cat">${BCAT.map(c=>`<option${b.category===c?' selected':''}>${c}</option>`).join('')}</select></div>
+    </div>
+    <div class="field"><label class="field-label">Variablen einfügen</label>
+      <div>${VARS.map(v=>`<span class="var-pill" onclick="insertBlockVar('${v.k}')">${v.l}</span>`).join('')}</div>
+    </div>
+    <div class="field"><label class="field-label">Text *</label>
+      <textarea id="bl-text" rows="7">${esc(b.text)}</textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-primary btn-full" onclick="saveBlock(${existing?existing.id:'null'})">Speichern</button>
+      ${existing?`<button class="btn btn-danger" onclick="delBlock(${existing.id})">Löschen</button>`:''}
+    </div>
+  `);
+}
+function insertBlockVar(key){
+  const ta=document.getElementById('bl-text');if(!ta)return;
+  const s=ta.selectionStart;ta.value=ta.value.slice(0,s)+key+ta.value.slice(ta.selectionEnd);
+  ta.focus();ta.setSelectionRange(s+key.length,s+key.length);
+}
+function saveBlock(id){
+  // TODO: Supabase Sync – await supabase.from('blocks').upsert({...obj, user_id})
+  const name=document.getElementById('bl-name')?.value?.trim();
+  const text=document.getElementById('bl-text')?.value?.trim();
+  if(!name||!text)return;
+  const cat=document.getElementById('bl-cat')?.value||'Sonstiges';
+  if(id!==null){
+    const idx=D.blocks.findIndex(x=>x.id===id);
+    if(idx>=0)D.blocks[idx]={...D.blocks[idx],name,category:cat,text};
+  }else{
+    D.blocks.push({id:D.nextBlockId++,name,category:cat,text});
+  }
+  saveData();closeModal();renderAdmin();
+}
+function delBlock(id){
+  // TODO: Supabase Sync – await supabase.from('blocks').delete().eq('id', id)
+  if(!confirm('Baustein löschen?'))return;
+  D.blocks=D.blocks.filter(b=>b.id!==id);
+  saveData();renderAdmin();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════ */
+// TODO: Supabase Sync – Replace this init block:
+// const { data: { session } } = await supabase.auth.getSession()
+// if (!session) { window.location.href = '/login' }
+// else { D = await loadFromSupabase(session.user.id); renderDashboard(); }
+renderDashboard();
+</script>
+</body>
+</html>

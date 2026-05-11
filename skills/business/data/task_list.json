@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "task": "Angebot für Thomas Schmidt erstellen",
+    "priority": "hoch",
+    "status": "offen",
+    "customer": "Thomas Schmidt",
+    "due": "2026-05-08",
+    "created": "2026-05-06"
+  },
+  {
+    "id": 2,
+    "task": "Zahlungseingang Erika Muster prüfen",
+    "priority": "mittel",
+    "status": "offen",
+    "customer": "Erika Muster",
+    "due": "2026-05-16",
+    "created": "2026-05-06"
+  },
+  {
+    "id": 3,
+    "task": "Follow-Up Mail an Max Mustermann",
+    "priority": "hoch",
+    "status": "offen",
+    "customer": "Max Mustermann",
+    "due": "2026-05-07",
+    "created": "2026-05-06"
+  }
+]

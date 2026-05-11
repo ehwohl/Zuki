@@ -1,0 +1,43 @@
+LLM API-KEYS — Einrichtungsanleitung
+=====================================
+
+ANTHROPIC (empfohlen für Zuki)
+-------------------------------
+1. console.anthropic.com → anmelden
+2. Links: "API Keys" → "Create Key"
+3. Key beginnt mit: sk-ant-...
+4. In .env eintragen:
+   ANTHROPIC_API_KEY=sk-ant-api03-...
+
+OPENAI (Alternative)
+--------------------
+1. platform.openai.com → anmelden
+2. Oben rechts: API Keys → "Create new secret key"
+3. Key beginnt mit: sk-...
+4. In .env eintragen:
+   OPENAI_API_KEY=sk-...
+
+AKTIVIERUNG
+-----------
+- Beide Keys in D:\Zuki\persona\config\.env eintragen
+- Anthropic hat Priorität wenn beide gesetzt sind
+- Zuki erkennt automatisch ob Key gültig ist:
+    Modus : SIMULATION  → Platzhalter, kein Key
+    Modus : LIVE        → echter Key erkannt
+
+MODELL-ÜBERSICHT
+----------------
+Anthropic:  claude-sonnet-4-6  (Standard in llm_manager.py)
+            claude-opus-4-7    (stärker, teurer)
+            claude-haiku-4-5   (schnell, günstig)
+
+OpenAI:     gpt-4o             (Standard in llm_manager.py)
+            gpt-4o-mini        (schneller, günstiger)
+
+MODELL WECHSELN:
+   D:\Zuki\core\llm_manager.py → Zeile mit model="..." anpassen
+
+RELEVANTE DATEIEN:
+   D:\Zuki\core\llm_manager.py
+   D:\Zuki\persona\config\.env
+   D:\Zuki\persona\identity.md  (wird als System-Prompt geladen)
