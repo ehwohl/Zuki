@@ -47,6 +47,7 @@ from tools.github_backup import GitHubBackup
 from tools.instance_guard import acquire as _guard_acquire, release as _guard_release
 from tools.session_state import SessionState
 from tools.system_test import SystemTest
+from core.tenant import get_tenant_manager
 
 LISTEN_TRIGGERS  = {"hör zu", "hoer zu"}
 EXIT_TRIGGERS    = {"exit", "quit", "beenden"}
@@ -55,6 +56,7 @@ BROKER_EXIT      = {"main", "exit broker"}
 VISION_TRIGGERS  = {"vision", "screenshot", "schau hin", "was siehst du"}
 SAVE_TRIGGERS    = {"save", "speichern", "merken"}
 CLOUD_TEST       = {"cloud test", "cloud status", "cloud ping"}
+TENANT_CMD       = "tenant"
 
 SCRAPER_INTERVAL = int(os.getenv("SCRAPER_INTERVAL", "600"))  # default 10 min
 
@@ -120,11 +122,12 @@ def _check_vision() -> bool:
         return False
 
 
-def display_startup_dashboard(llm, api_mgr, stt, tts, history, profile) -> None:
+def display_startup_dashboard(llm, api_mgr, stt, tts, history, profile, tenant_mgr=None) -> None:
     """
-    Kompaktes Startup-Dashboard — zeigt Profil, System-Status
+    Kompaktes Startup-Dashboard — zeigt Profil, Tenant, System-Status
     und Befehlsreferenz in einer Box.
     """
+    tenant_name = tenant_mgr.current() if tenant_mgr else "self"
     ui.print_dashboard(
         simulation    = llm.simulation,
         api_provider  = api_mgr.provider_label,
@@ -134,11 +137,13 @@ def display_startup_dashboard(llm, api_mgr, stt, tts, history, profile) -> None:
         whisper_mode  = stt.mode_label,
         tts_voice     = tts._voice_name,
         vision_ok     = _check_vision(),
+        tenant_name   = tenant_name,
     )
     log.info(
         f"Dashboard: {llm.system_prompt_info}  |  "
         f"API-Provider: {api_mgr.provider_label}  |  "
-        f"Gedächtnis: {history.count}"
+        f"Gedächtnis: {history.count}  |  "
+        f"Tenant: {tenant_name}"
     )
 
 
@@ -198,6 +203,22 @@ def run():
                 _prev_state = None
                 log.info("[SESSION-CLEAR] Wiederherstellung abgelehnt — State verworfen")
 
+    # ── Tenant-Manager — früh initialisieren ──────────────────────────────────
+    tenant_mgr = get_tenant_manager()
+    _migration_needed = not tenant_mgr.migration_done()
+
+    # ── Lokale Datei-Migration (Profil-Umbenennung, vor UserProfile-Init) ─────
+    if _migration_needed:
+        import shutil as _shutil
+        _old_profile = os.path.join(ROOT, "memory", "user_profile.txt")
+        _new_profile = os.path.join(ROOT, "memory", "user_profile_self.txt")
+        if os.path.exists(_old_profile) and not os.path.exists(_new_profile):
+            try:
+                _shutil.copy2(_old_profile, _new_profile)
+                log.info("[TENANT-MIGRATION] user_profile.txt → user_profile_self.txt")
+            except OSError as _e:
+                log.warning(f"[TENANT-MIGRATION] Profil-Kopie fehlgeschlagen: {_e}")
+
     log.info("Zuki startet")
 
     try:
@@ -255,7 +276,7 @@ def run():
 
     # ── Startup-Dashboard — Screen clearen für saubere Anzeige ───────────────
     os.system("cls" if sys.platform == "win32" else "clear")
-    display_startup_dashboard(llm, api_mgr, stt, tts, history, profile)
+    display_startup_dashboard(llm, api_mgr, stt, tts, history, profile, tenant_mgr)
 
     broker_mode   = False   # activated by 'broker' command
     last_response = ""      # letzte Zuki-Antwort — für manuelles / Auto-Speichern
@@ -271,6 +292,15 @@ def run():
 
     # ── Profil mit Cloud verbinden (für asynchronen Bio-Sync) ─────────────────
     profile.set_cloud(cloud)
+
+    # ── Cloud-Migration (einmalig, nach Cloud-Init) ────────────────────────────
+    if _migration_needed:
+        log.info("[TENANT-MIGRATION] Starte Cloud-Migration...")
+        if cloud.enabled:
+            _mig_status = cloud.migrate_to_tenant("self")
+            log.info(f"[TENANT-MIGRATION] Cloud-Ergebnis: {_mig_status}")
+        tenant_mgr.mark_migration_done()
+        ui.system_msg("[TENANT-MIGRATION] Abgeschlossen — Daten auf Tenant-Struktur umgestellt.")
 
     # ── Bio-Recovery: lokales Profil leer → aus Cloud anbieten ───────────────
     if profile.is_empty and cloud.enabled:
@@ -459,6 +489,93 @@ def run():
                         _save_state()
                 continue
 
+            # ── Tenant-Befehle ─────────────────────────────────────────────────
+            if cmd == TENANT_CMD or cmd.startswith(TENANT_CMD + " "):
+                _parts = cmd.split()
+
+                if len(_parts) == 1:
+                    # tenant → aktuellen + alle bekannten anzeigen
+                    _known = tenant_mgr.list_known()
+                    ui.system_msg(
+                        f"[TENANT] Aktiver Workspace: {tenant_mgr.current()}"
+                        f"  ·  Bekannte: {', '.join(_known)}"
+                    )
+
+                elif _parts[1] == "list":
+                    _known = tenant_mgr.list_known()
+                    ui.system_msg(f"[TENANT] Bekannte Tenants: {', '.join(_known)}")
+
+                elif _parts[1] == "switch" and len(_parts) > 2:
+                    _name = _parts[2]
+                    if tenant_mgr.switch(_name):
+                        profile.reload()
+                        log.info(f"[TENANT] Gewechselt zu: {_name}")
+                        ui.system_msg(
+                            f"[TENANT] Workspace gewechselt zu: {_name}  "
+                            f"·  Profil neu geladen."
+                        )
+                    else:
+                        ui.error_msg(
+                            f"Tenant '{_name}' unbekannt.\n"
+                            f"    Erst anlegen mit: tenant create {_name}"
+                        )
+
+                elif _parts[1] == "create" and len(_parts) > 2:
+                    _name = _parts[2]
+                    if tenant_mgr.create(_name):
+                        ui.system_msg(
+                            f"[TENANT] Tenant '{_name}' erstellt  "
+                            f"·  require_dsgvo=True (Business-Default)"
+                        )
+                    else:
+                        ui.error_msg(
+                            f"Tenant '{_name}' existiert bereits oder Name ungültig."
+                        )
+
+                elif _parts[1] == "delete" and len(_parts) > 2:
+                    _name = _parts[2]
+                    if _name == "self":
+                        ui.error_msg("[TENANT] 'self' kann nicht gelöscht werden.")
+                    elif _name == tenant_mgr.current():
+                        ui.error_msg(
+                            f"[TENANT] Aktiven Tenant '{_name}' nicht löschbar — "
+                            f"zuerst wechseln: tenant switch self"
+                        )
+                    else:
+                        ui.speak_zuki(
+                            f"Tenant '{_name}' wirklich löschen?\n"
+                            f"Profil-Daten werden entfernt. (ja / nein)"
+                        )
+                        _ans = ui.user_prompt()
+                        if _ans.strip().lower() in {"ja", "j", "yes", "y"}:
+                            # Lokale Profildatei löschen
+                            import shutil as _shutil
+                            _pfile = os.path.join(
+                                ROOT, "memory", f"user_profile_{_name}.txt"
+                            )
+                            if os.path.exists(_pfile):
+                                try:
+                                    os.remove(_pfile)
+                                except OSError:
+                                    pass
+                            if tenant_mgr.delete(_name):
+                                ui.system_msg(f"[TENANT] Tenant '{_name}' gelöscht.")
+                            else:
+                                ui.error_msg(f"Löschen fehlgeschlagen für '{_name}'.")
+                        else:
+                            ui.system_msg("[TENANT] Abgebrochen.")
+
+                else:
+                    ui.error_msg(
+                        "Tenant-Befehle:\n"
+                        "    tenant                 → Aktiver Workspace\n"
+                        "    tenant list            → Alle bekannten\n"
+                        "    tenant switch <name>   → Wechseln\n"
+                        "    tenant create <name>   → Neu anlegen\n"
+                        "    tenant delete <name>   → Löschen (mit Bestätigung)"
+                    )
+                continue
+
             # ── System-Befehle ─────────────────────────────────────────────────
             if cmd == "system backup":
                 ui.system_msg("Erstelle Snapshot...")
@@ -509,6 +626,7 @@ def run():
                     session_state        = state,
                     auto_backup          = _auto_backup,
                     github_backup        = _github_backup,
+                    tenant_mgr           = tenant_mgr,
                 )
                 if subname is None:
                     results = tester.run_all()

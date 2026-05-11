@@ -2,13 +2,13 @@
 user_profile.py — Bio-Memory für Zuki
 ───────────────────────────────────────
 Speichert dauerhaft, was der User über sich preisgibt.
-Datei: memory/user_profile.txt  (plain text, human-readable)
+Datei-Pattern: memory/user_profile_{tenant}.txt  (plain text, human-readable)
 
 Extraktion:
   Regex-basiert — kein API-Call nötig.
   LIVE UPGRADE: _extract_llm() via LLM für komplexere Sätze ersetzen.
 
-Format user_profile.txt:
+Format user_profile_self.txt:
   Name: Klaus
   Aktien: NVDA, Apple, BTC
   Interessen: KI, Krypto
@@ -25,9 +25,15 @@ from core.logger import get_logger
 
 log = get_logger("profile")
 
-PROFILE_FILE = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_profile.txt")
-)
+_PROFILE_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__))))
+
+# Legacy-Pfad (pre-Bundle-5) — nur für Migration-Referenz
+PROFILE_FILE = os.path.join(_PROFILE_DIR, "user_profile.txt")
+
+
+def _profile_path(tenant: str) -> str:
+    """Gibt den Datei-Pfad für den gegebenen Tenant zurück."""
+    return os.path.join(_PROFILE_DIR, f"user_profile_{tenant}.txt")
 
 # ── Regex-Muster ───────────────────────────────────────────────────────────────
 
@@ -71,13 +77,15 @@ _LEVEL_PATTERNS = [
 class UserProfile:
     """
     Lädt, aktualisiert und persistiert das User-Profil.
+    Datei-Pfad: memory/user_profile_{tenant}.txt — pro Tenant getrennt.
     Optional: Cloud-Sync via set_cloud() — async, non-blocking.
     """
 
-    def __init__(self, path: str = PROFILE_FILE):
-        self._path       = path
-        self._cloud      = None                   # gesetzt via set_cloud()
-        self._last_sync: datetime | None = None   # Status-API
+    def __init__(self, path: str | None = None):
+        # path nur für Legacy-Overrides/Tests; normalerweise None (→ tenant-aware)
+        self._path_override  = path
+        self._cloud          = None                   # gesetzt via set_cloud()
+        self._last_sync: datetime | None = None       # Status-API
         self._data: dict[str, str | list[str]] = {
             "name":       "",
             "level":      "",   # "Anfänger" | "Fortgeschrittener" | "Profi" | "Experte"
@@ -85,6 +93,23 @@ class UserProfile:
             "interests":  [],
         }
         self._load()
+
+    def _current_path(self) -> str:
+        """Berechnet den Datei-Pfad abhängig vom aktiven Tenant."""
+        if self._path_override:
+            return self._path_override
+        try:
+            from core.tenant import get_tenant_manager
+            tenant = get_tenant_manager().current()
+        except Exception:
+            tenant = "self"
+        return _profile_path(tenant)
+
+    def reload(self) -> None:
+        """Lädt das Profil für den aktuellen Tenant neu (z.B. nach tenant switch)."""
+        self._data = {"name": "", "level": "", "stocks": [], "interests": []}
+        self._load()
+        log.info(f"[PROFIL] Profil neu geladen: {self._current_path()}")
 
     # ── Cloud-Integration ─────────────────────────────────────────────────────
 
@@ -180,10 +205,11 @@ class UserProfile:
 
     def get_profile_text(self) -> str:
         """Vollständiger Profiltext — für SIM-Anzeige und Debug."""
-        if not os.path.exists(self._path):
+        path = self._current_path()
+        if not os.path.exists(path):
             return "(kein Profil gespeichert)"
         try:
-            with open(self._path, encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 return f.read().strip()
         except OSError:
             return "(Profildatei nicht lesbar)"
@@ -212,11 +238,12 @@ class UserProfile:
         log.info(f"[BIO-SAVE] Profil-Snapshot zur Cloud gesendet | {self.get_summary()}")
 
     def _load(self) -> None:
-        if not os.path.exists(self._path):
-            log.debug("user_profile.txt nicht vorhanden — starte leer")
+        path = self._current_path()
+        if not os.path.exists(path):
+            log.debug(f"Profil nicht vorhanden — starte leer: {os.path.basename(path)}")
             return
         try:
-            with open(self._path, encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if not line or line.startswith("#") or ":" not in line:
@@ -236,16 +263,17 @@ class UserProfile:
                         self._data["interests"] = [
                             s.strip() for s in value.split(",") if s.strip()
                         ]
-            log.info(f"Profil geladen: {self.get_summary() or 'leer'}")
+            log.info(f"Profil geladen [{os.path.basename(path)}]: {self.get_summary() or 'leer'}")
         except OSError as e:
             log.warning(f"Profil konnte nicht geladen werden: {e}")
 
     def _save(self) -> None:
+        path = self._current_path()
         try:
-            os.makedirs(os.path.dirname(self._path), exist_ok=True)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
             stocks    = ", ".join(self._data.get("stocks", []))
             interests = ", ".join(self._data.get("interests", []))
-            with open(self._path, "w", encoding="utf-8") as f:
+            with open(path, "w", encoding="utf-8") as f:
                 f.write(
                     f"Name: {self._data.get('name', '')}\n"
                     f"Niveau: {self._data.get('level', '')}\n"

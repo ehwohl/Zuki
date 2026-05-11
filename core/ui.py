@@ -151,6 +151,7 @@ class TerminalRenderer(UIRenderer):
         whisper_mode: str,
         tts_voice:    str,
         vision_ok:    bool,
+        tenant_name:  str = "self",
     ) -> None:
         chat_color  = YELLOW if simulation else GREEN
         chat_label  = "SIMULATION" if simulation else "LIVE"
@@ -173,6 +174,7 @@ class TerminalRenderer(UIRenderer):
             f"  ·  Niveau: {level_str}"
             f"  ·  🧠 {memory_count} Erinnerungen"
         )
+        _bline(f"🏢 Tenant: {CYAN}{tenant_name}{R}")
         _bsep()
 
         _bline(f"{BOLD}SYSTEM{R}", GRAY)
@@ -193,6 +195,7 @@ class TerminalRenderer(UIRenderer):
         _cmd("report",          "News-Auswertung (im Broker-Modus)")
         _cmd("explain [Thema]", "Der Professor — Erklärung")
         _cmd("vision",          "Screenshot analysieren")
+        _cmd("tenant [list|switch|create|delete]", "Workspace wechseln")
         _cmd("system backup",   "Projekt-Snapshot erstellen")
         _cmd("hör zu",          "Spracheingabe (5 Sek.)")
         _cmd("exit",            "Beenden")

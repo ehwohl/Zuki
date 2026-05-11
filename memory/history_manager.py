@@ -44,11 +44,18 @@ class HistoryManager:
           "broker" — Broker-Report: wird in get_context() isoliert
                      (nur letzter Eintrag, gekürzt auf BROKER_SUMMARY_WORDS)
         """
+        try:
+            from core.tenant import get_tenant_manager
+            tenant_id = get_tenant_manager().current()
+        except Exception:
+            tenant_id = "self"
+
         self._messages.append({
             "role":      role,
             "content":   content,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "source":    source,
+            "tenant_id": tenant_id,
         })
         if len(self._messages) > self._max_stored:
             removed = len(self._messages) - self._max_stored
@@ -69,8 +76,22 @@ class HistoryManager:
             with [Broker-Report] so the LLM knows it's a market summary,
             not part of the normal dialogue.
           - Fillers skipped. System prompt NOT included.
+        Tenant-Isolation:
+          - Nur Nachrichten des aktuellen Tenants werden zurückgegeben.
+          - Legacy-Einträge ohne tenant_id gelten als "self".
         """
-        window = self._messages[-self._context_window:]
+        try:
+            from core.tenant import get_tenant_manager
+            current_tenant = get_tenant_manager().current()
+        except Exception:
+            current_tenant = "self"
+
+        # Nur Einträge des aktiven Tenants berücksichtigen
+        tenant_msgs = [
+            m for m in self._messages
+            if m.get("tenant_id", "self") == current_tenant
+        ]
+        window = tenant_msgs[-self._context_window:]
 
         # Collect at most ONE broker entry (most recent assistant broker msg)
         last_broker: dict | None = None

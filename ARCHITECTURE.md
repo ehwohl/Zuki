@@ -5,7 +5,7 @@
 > die Wahrheit über *was* passiert — dieses Dokument ist die Wahrheit
 > über *warum*.
 >
-> **Stand:** Nach Bundle 4.5 — GitHub-Backup (Code-Backup via Git, Disaster-Recovery-Doku, 13. System-Test-Subsystem).
+> **Stand:** Nach Bundle 5 — Tenant-Pattern (Multi-Tenant-Foundation, 14. System-Test-Subsystem).
 
 ---
 
@@ -15,8 +15,9 @@
 D:\Zuki\
 ├── core/
 │   ├── main.py                  ← Hauptschleife, Befehlsrouting
+│   ├── tenant.py                ← TenantManager Singleton + TenantConfig
 │   ├── llm_manager.py           ← Anthropic + OpenAI direkt (älter)
-│   ├── api_manager.py           ← Gemini/Anthropic/OpenAI/Local Multi-Provider
+│   ├── api_manager.py           ← Gemini/Anthropic/OpenAI/Local Multi-Provider (DSGVO-aware)
 │   ├── ui_renderer.py           ← UIRenderer ABC (alle Renderer erben hieraus)
 │   ├── ui.py                    ← TerminalRenderer(UIRenderer) + Forwarding-API
 │   ├── ui_factory.py            ← get_renderer() Singleton, liest ZUKI_UI ENV
@@ -230,6 +231,39 @@ weil der Entwickler sonst nicht merkt, dass der Stub noch leer ist.
 - `raise NotImplementedError("... LIVE UPGRADE-Kommentar ...")`
 
 Aufrufer die mit Stubs umgehen müssen, fangen `NotImplementedError` selbst ab.
+
+### 13. Tenant-Pattern — Daten-Isolation pro Workspace (Bundle 5)
+**Was:** Jeder Tenant (z.B. "self", "client-schmidt") hat isolierte Daten:
+- Cloud-Gedächtnis: `zuki:memories:{tenant}` / Audit: `zuki:audit:{tenant}`
+- Profil-Datei: `memory/user_profile_{tenant}.txt`
+- Chat-History: ein File, Einträge mit `tenant_id`-Feld, `get_context()` filtert
+
+**Warum:** Langfristig kommt Business-Nutzung mit echten Kunden-Daten.
+Privates und Berufliches darf niemals vermischt werden. Das Tenant-Konzept
+legt die Foundation ohne bestehende Logik umzuschreiben — alle Änderungen
+sind additive Tags und Umschalter.
+
+**DSGVO-Constraint:** `TenantConfig.require_dsgvo = True` blockiert Gemini Free
+(nicht DSGVO-konform) und schaltet auf Anthropic/OpenAI um. Ist kein kompatibler
+Provider vorhanden, meldet `APIManager` eine klare Fehlermeldung statt still
+zu simulieren.
+
+**Migration:** Einmalig beim ersten Start nach Bundle 5:
+1. `user_profile.txt` → `user_profile_self.txt` (lokal, vor UserProfile-Init)
+2. `POST /api/memory/migrate` → kopiert `zuki:memories` → `zuki:memories:self`
+3. Marker `__migration_v1_done__` in `temp/tenants.json` — idempotent
+
+**Legacy-Fallback:** GET /api/memory liest für tenant=self auch `zuki:memories`
+falls der neue Key leer ist. Kommentar markiert: *TODO: nach 2026-05-25 entfernen*.
+
+**Konvention für neue Features:**
+- Jeder neue Cloud-Endpoint muss `tenant` aus Body/Query lesen (default "self")
+- Jede Datei die pro-User gespeichert wird: `{name}_{tenant}.{ext}` Muster
+- History-Einträge immer mit `tenant_id` schreiben
+- Vor Zugriff auf TenantManager: `try/except` als Safety-Net (Import könnte früh scheitern)
+
+**Audit-Log:** Jeder Cloud-Save erzeugt einen Eintrag in `zuki:audit:{tenant}`.
+Max. 500 Einträge, kein UI dafür im MVP — Foundation für spätere Compliance-Ansicht.
 
 ---
 

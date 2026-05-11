@@ -58,15 +58,15 @@
 - Wiederherstellungs-Workflow dokumentiert (`docs/RECOVERY.md`)
 - 13. Subsystem in `system test`: konfiguriert? Remote erreichbar? .env getrackt?
 
-### Bundle 5 — Tenant-Pattern 🔒⬜
-- `tenant_id` als Standard-Field in allen Datenstrukturen
-- Workspace-Switch: `tenant self` / `tenant client-schmidt`
-- Cloud-Listen pro Tenant: `zuki:memories:{tenant}`
+### Bundle 5 — Tenant-Pattern ✅
+- `tenant_id` in allen Datenstrukturen (History, Cloud, Profile)
+- Workspace-Switch: `tenant switch self` / `tenant switch client-schmidt`
+- Cloud-Listen pro Tenant: `zuki:memories:{tenant}` + Audit `zuki:audit:{tenant}`
 - LLM-Provider per Tenant konfigurierbar
   (Privat → Gemini Free OK, Business → nur DSGVO-konforme Provider)
-- Audit-Log-Foundation pro Tenant
-- **Cross-cutting: berührt Cloud-Memory, History, User-Profile,
-  alle bestehenden Skills. Daher 🔒.**
+- Audit-Log-Foundation pro Tenant (Foundation, UI kommt später)
+- Einmalige Migration: user_profile.txt → user_profile_self.txt + Cloud-Key-Migration
+- 14. Subsystem "tenant" in system test
 
 ### Bundle 6 — Router-Agent ⬜
 - Multi-Skill-Orchestrierung (LLM entscheidet welche Skills)
@@ -228,10 +228,6 @@ fließen. Davor Symbolik ohne realen Schutzgewinn.
 ### Search-Endpoint (Cloud) 💤
 Erst wenn >50 Einträge regelmäßig durchsucht werden müssen.
 Bis dahin reicht das `/view?limit=200` Endpoint.
-
-### APILayer 💤
-Geprüft: bringt für Zuki keinen Mehrwert. Direkte Integrationen
-sind sauberer und günstiger.
 
 ### Multi-Device-Sync 💤
 Konfliktauflösung zu komplex für aktuellen Use-Case (ein Rechner).

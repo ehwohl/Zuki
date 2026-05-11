@@ -310,6 +310,12 @@ class CloudMemory:
         if source == "manual":
             self._save_count += 1
 
+        try:
+            from core.tenant import get_tenant_manager
+            _tenant = get_tenant_manager().current()
+        except Exception:
+            _tenant = "self"
+
         payload = {
             "text":       text[:8000],
             "source":     source,
@@ -317,6 +323,7 @@ class CloudMemory:
             "timestamp":  datetime.datetime.now().isoformat(),
             "save_nr":    self._save_count if source == "manual" else None,
             "v":          1,
+            "tenant":     _tenant,
         }
 
         if source == "manual":
@@ -354,8 +361,14 @@ class CloudMemory:
             return None
         log.info("[BIO-CHECK] Suche neuestes Bio-Backup in der Cloud...")
         try:
+            from core.tenant import get_tenant_manager
+            _tenant = get_tenant_manager().current()
+        except Exception:
+            _tenant = "self"
+
+        try:
             req = urllib.request.Request(
-                url     = f"{self._url}?source=bio&limit=1",
+                url     = f"{self._url}?source=bio&limit=1&tenant={_tenant}",
                 headers = {"x-zuki-token": self._token},
                 method  = "GET",
             )
@@ -376,6 +389,40 @@ class CloudMemory:
         except Exception as e:
             log.warning(f"[BIO-CHECK] Fehler: {e}")
             return None
+
+    def migrate_to_tenant(self, tenant: str) -> str:
+        """
+        Ruft POST /api/memory/migrate auf, um Legacy-Einträge (zuki:memories)
+        in den Tenant-Key (zuki:memories:{tenant}) zu verschieben.
+        Wird einmalig bei der Bundle-5-Migration aufgerufen.
+        """
+        if not self.enabled:
+            return "Cloud nicht konfiguriert — übersprungen"
+        try:
+            migrate_url = self._url.rstrip("/") + "/migrate"
+            data = json.dumps({"tenant": tenant}, ensure_ascii=False).encode("utf-8")
+            req  = urllib.request.Request(
+                url     = migrate_url,
+                data    = data,
+                headers = {
+                    "Content-Type": "application/json",
+                    "x-zuki-token": self._token,
+                },
+                method  = "POST",
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                body     = json.loads(resp.read().decode())
+                migrated = body.get("migrated", 0)
+                msg      = body.get("message", "")
+                log.info(
+                    f"[TENANT-MIGRATION] Cloud: {migrated} Einträge migriert"
+                    + (f" — {msg}" if msg else "")
+                )
+                return f"ok  ·  {migrated} Einträge migriert"
+        except urllib.error.HTTPError as e:
+            return f"HTTP {e.code}: Migration fehlgeschlagen"
+        except Exception as e:
+            return f"Migration-Fehler: {e}"
 
     def should_ask_auto(self) -> bool:
         return (

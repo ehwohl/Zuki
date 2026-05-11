@@ -4,6 +4,88 @@ Alle Änderungen chronologisch dokumentiert. Neueste Einträge oben.
 
 ---
 
+## Bundle 5 — Tenant-Pattern (2026-05-11)
+
+**Status: ✅ Abgeschlossen**
+
+### Implementiert
+
+- **`core/tenant.py`** (neu): `TenantManager`-Singleton + `TenantConfig`.
+  - `current()`, `switch(name)`, `create(name, config)`, `delete(name)`,
+    `list_known()`, `config(name)`, `get_config(name)`
+  - Persistenz: `temp/tenants.json` (current + tenants-Dict + Migration-Marker)
+  - `migration_done()` / `mark_migration_done()` — idempotente Migration
+  - `self_test() → dict` — Status-API für system test
+- **Einmalige Bundle-5-Migration** (beim ersten Start automatisch):
+  1. `user_profile.txt` → `user_profile_self.txt` (lokal, vor UserProfile-Init)
+  2. `POST /api/memory/migrate` — kopiert `zuki:memories` → `zuki:memories:self`
+  3. Marker `__migration_v1_done__` gesetzt — idempotent, Re-Run-sicher
+  4. Log-Marker `[TENANT-MIGRATION]`
+- **Tenant-Befehle** in `main.py`:
+  - `tenant` — zeigt aktiven Workspace + alle bekannten
+  - `tenant list` — alle Tenants
+  - `tenant switch <name>` — wechselt + lädt Profil neu
+  - `tenant create <name>` — legt neuen Tenant an (Business-Default: require_dsgvo=True)
+  - `tenant delete <name>` — fragt nach Bestätigung, löscht Profil-Datei
+- **Dashboard** zeigt neu: `🏢 Tenant: self`
+- **Cloud-API `zuki_cloud/api/index.py`** tenant-aware:
+  - Redis-Keys: `zuki:memories:{tenant}`, `zuki:audit:{tenant}`
+  - Legacy-Fallback: GET liest `zuki:memories` falls neuer Key leer (bis 2026-05-25)
+  - `POST /api/memory/migrate` — Migrations-Endpunkt (idempotent)
+  - Audit-Log: jeder Save erzeugt Eintrag in `zuki:audit:{tenant}` (max. 500)
+  - View-Seite: `?tenant=client-xyz` Parameter, Badge im Header
+- **`tools/cloud_memory.py`**: `tenant`-Feld in allen Payloads; `migrate_to_tenant()`
+- **`memory/history_manager.py`**: `tenant_id`-Feld pro Nachricht; `get_context()` filtert
+- **`memory/user_profile.py`**: `user_profile_{tenant}.txt` Datei-Pattern; `reload()`
+- **`core/api_manager.py`**: DSGVO-Constraint via `TenantConfig.require_dsgvo`;
+  klare Fehlermeldung statt stiller Simulation wenn Gemini blockiert
+- **14. Subsystem "tenant"** in `tools/system_test.py`: prüft tenants.json,
+  aktiven Tenant, Config-Validität, Migration abgeschlossen
+- **`docs/MIGRATION.md`** (neu): Hinweise für künftige Bundles ("muss tenant-aware sein")
+
+### Geänderte Files
+
+- `core/tenant.py` — **neu**
+- `core/main.py` — TenantManager-Import, Migrations-Block, tenant-Befehle,
+  Dashboard-Tenant-Anzeige, SystemTest mit tenant_mgr
+- `core/api_manager.py` — `_dsgvo_blocked`, DSGVO-Prüfung in `_detect_provider()`
+- `core/ui_renderer.py` — `print_dashboard` + `tenant_name` Parameter
+- `core/ui.py` — Tenant-Zeile + Tenant-Befehl im Dashboard
+- `memory/history_manager.py` — `tenant_id` in `append()`, Filter in `get_context()`
+- `memory/user_profile.py` — `_profile_path(tenant)`, `_current_path()`, `reload()`
+- `tools/cloud_memory.py` — tenant in Payloads + `migrate_to_tenant()`
+- `tools/system_test.py` — `tenant_mgr` Parameter + `_test_tenant()`
+- `zuki_cloud/api/index.py` — vollständig überarbeitet (Tenant-Keys, Audit, Migrate)
+- `docs/MIGRATION.md` — **neu**
+
+### Neue Status-APIs
+
+- `TenantManager.current() → str`
+- `TenantManager.switch(name) → bool`
+- `TenantManager.create(name, config) → bool`
+- `TenantManager.delete(name) → bool`
+- `TenantManager.list_known() → list[str]`
+- `TenantManager.config(name) → dict`
+- `TenantManager.get_config(name) → TenantConfig`
+- `TenantManager.migration_done() → bool`
+- `TenantManager.self_test() → dict`
+- `UserProfile.reload() → None`
+- `CloudMemory.migrate_to_tenant(tenant) → str`
+
+### Notizen
+
+- **Standard-Tenant "self"** hat `require_dsgvo=False` — verhält sich wie bisher.
+- **Business-Tenants** haben `require_dsgvo=True` per Default — schützt vor
+  versehentlichem Gemini-Free-Einsatz mit Kundendaten.
+- **History-Datei** bleibt eine Datei — Tenant-Isolation durch `tenant_id`-Filter,
+  nicht durch separate Dateien. Spart Disk-IO, funktioniert bei Live-Switch.
+- **Audit-Log** ist Foundation-only — kein UI im MVP. Kommt in späterem Bundle.
+- **Migration ist idempotent**: zweiter Start ohne Marker → Migration versucht erneut;
+  lokale Datei-Kopie übersprungen falls Ziel bereits existiert.
+- **ARCHITECTURE.md**: Entscheidung 13 ergänzt (Tenant-Pattern).
+
+---
+
 ## Bundle 4.5 — GitHub-Backup (2026-05-11)
 
 **Status: ✅ Abgeschlossen**

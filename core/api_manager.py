@@ -148,6 +148,9 @@ class APIManager:
         env_model = os.environ.get("GEMINI_MODEL", "").strip()
         self._gemini_model = env_model if env_model else "gemini-1.5-flash-latest"
 
+        # Wird gesetzt wenn DSGVO-Constraint Gemini blockiert und kein anderer Provider verfügbar
+        self._dsgvo_blocked = False
+
         self.provider   = self._detect_provider()
         self.simulation = self.provider == "sim"
 
@@ -160,13 +163,45 @@ class APIManager:
     # ── Provider-Erkennung ─────────────────────────────────────────────────────
 
     def _detect_provider(self) -> str:
-        if _is_valid_gemini(self._gemini_key):
+        # Tenant-DSGVO-Constraint prüfen
+        require_dsgvo = False
+        try:
+            from core.tenant import get_tenant_manager
+            require_dsgvo = get_tenant_manager().get_config().require_dsgvo
+        except Exception:
+            pass
+
+        gemini_ok    = _is_valid_gemini(self._gemini_key)
+        anthropic_ok = _is_valid_anthropic(self._anthropic_key)
+        openai_ok    = _is_valid_openai(self._openai_key)
+        local_ok     = _is_valid_local(self._local_url)
+
+        if require_dsgvo:
+            # Gemini Free gilt als nicht DSGVO-konform → zuerst Anthropic/OpenAI/Local
+            if anthropic_ok:
+                return "anthropic"
+            if openai_ok:
+                return "openai"
+            if local_ok:
+                log.info(f"[LOCAL-LLM-STUB] URL erkannt: {self._local_url} — Stub aktiv")
+                return "local"
+            if gemini_ok:
+                # Gemini vorhanden aber blockiert — markieren für User-Meldung in chat()
+                self._dsgvo_blocked = True
+                log.warning(
+                    "[DSGVO] Tenant erfordert DSGVO-konforme Provider — "
+                    "Gemini blockiert, kein kompatibler Key gefunden → SIM"
+                )
+            return "sim"
+
+        # Standard-Reihenfolge (kein DSGVO-Constraint)
+        if gemini_ok:
             return "gemini"
-        if _is_valid_anthropic(self._anthropic_key):
+        if anthropic_ok:
             return "anthropic"
-        if _is_valid_openai(self._openai_key):
+        if openai_ok:
             return "openai"
-        if _is_valid_local(self._local_url):
+        if local_ok:
             log.info(f"[LOCAL-LLM-STUB] URL erkannt: {self._local_url} — Stub aktiv")
             return "local"
         return "sim"
@@ -228,6 +263,8 @@ class APIManager:
     def chat(self, prompt: str, system: str = "", max_tokens: int = 2048) -> str:
         """Einzelner Prompt → Antwort-String."""
         if self.simulation:
+            if self._dsgvo_blocked:
+                return self._dsgvo_error()
             return self._simulate(prompt)
         try:
             if self.provider == "gemini":
@@ -250,6 +287,8 @@ class APIManager:
     ) -> str:
         """Multi-Turn Conversation im OpenAI-Format."""
         if self.simulation:
+            if self._dsgvo_blocked:
+                return self._dsgvo_error()
             last = messages[-1]["content"] if messages else ""
             return self._simulate(last)
         try:
@@ -491,6 +530,18 @@ class APIManager:
         )
 
     # ── Simulation ─────────────────────────────────────────────────────────────
+
+    def _dsgvo_error(self) -> str:
+        try:
+            from core.tenant import get_tenant_manager
+            tenant = get_tenant_manager().current()
+        except Exception:
+            tenant = "?"
+        return (
+            f"[DSGVO] Tenant '{tenant}' erfordert DSGVO-konforme KI-Provider.\n"
+            f"Gemini Free ist in diesem Workspace nicht erlaubt.\n"
+            f"Lösung: ANTHROPIC_API_KEY oder OPENAI_API_KEY in .env eintragen."
+        )
 
     @staticmethod
     def _simulate(prompt: str) -> str:

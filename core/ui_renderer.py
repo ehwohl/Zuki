@@ -59,6 +59,7 @@ class UIRenderer(ABC):
         whisper_mode: str,
         tts_voice:    str,
         vision_ok:    bool,
+        tenant_name:  str = "self",
     ) -> None:
         """Kompaktes Startup-Dashboard — ein schneller Blick auf alles."""
         ...

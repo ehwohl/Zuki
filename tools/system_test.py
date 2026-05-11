@@ -57,17 +57,19 @@ class SystemTest:
         session_state=None,
         auto_backup=None,
         github_backup=None,
+        tenant_mgr=None,
     ):
-        self._cloud   = cloud
-        self._api_mgr = api_mgr
-        self._stt     = stt
-        self._tts     = tts
-        self._history = history
-        self._profile = profile
-        self._skills  = skill_registry_module
-        self._session = session_state
-        self._backup  = auto_backup
-        self._github  = github_backup
+        self._cloud      = cloud
+        self._api_mgr    = api_mgr
+        self._stt        = stt
+        self._tts        = tts
+        self._history    = history
+        self._profile    = profile
+        self._skills     = skill_registry_module
+        self._session    = session_state
+        self._backup     = auto_backup
+        self._github     = github_backup
+        self._tenant_mgr = tenant_mgr
 
         self._tests = {
             "cloud":      self._test_cloud,
@@ -83,6 +85,7 @@ class SystemTest:
             "backup":     self._test_backup,
             "env":        self._test_env,
             "github":     self._test_github,
+            "tenant":     self._test_tenant,
         }
 
     # ── Öffentliche API ───────────────────────────────────────────────────────
@@ -413,6 +416,24 @@ class SystemTest:
         result = g.self_test()
         return TestResult(
             name     = "github",
+            status   = result["status"],
+            summary  = result["summary"],
+            fix_hint = result.get("fix_hint", ""),
+        )
+
+    # ── Tenant ────────────────────────────────────────────────────────────────
+
+    def _test_tenant(self) -> TestResult:
+        tm = self._tenant_mgr
+        if tm is None:
+            return TestResult(
+                "tenant", "warn",
+                "TenantManager nicht übergeben",
+                "SystemTest mit tenant_mgr=tenant_mgr instanziieren",
+            )
+        result = tm.self_test()
+        return TestResult(
+            name     = "tenant",
             status   = result["status"],
             summary  = result["summary"],
             fix_hint = result.get("fix_hint", ""),
