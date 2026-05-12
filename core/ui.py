@@ -194,10 +194,13 @@ class TerminalRenderer(UIRenderer):
         _cmd("broker",          "Marktanalyse & News aktivieren")
         _cmd("report",          "News-Auswertung (im Broker-Modus)")
         _cmd("explain [Thema]", "Der Professor — Erklärung")
+        _cmd("business analyse <Name>",    "Gastro-Analyse + PDF-Report")
+        _cmd("business interview <Name>",  "Workflow-Audit + PDF (zurück = vorherige Frage)")
         _cmd("vision",          "Screenshot analysieren")
         _cmd("tenant [list|switch|create|delete]", "Workspace wechseln")
         _cmd("system backup",   "Projekt-Snapshot erstellen")
         _cmd("cleanup [vision|chats|old|cloud|all]", "Daten bereinigen")
+        _cmd("cleanup kunde [<Name>|all] [!]",      "Kunden-Dokumente auflisten / löschen")
         _cmd("hör zu",          "Spracheingabe (5 Sek.)")
         _cmd("exit",            "Beenden")
 

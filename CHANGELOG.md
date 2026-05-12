@@ -4,6 +4,292 @@ Alle Änderungen chronologisch dokumentiert. Neueste Einträge oben.
 
 ---
 
+## Bundle 12.1 — Cleanup: Tenant-Isolation + Kunden-Dokumente (2026-05-12)
+
+**Status: ✅ Abgeschlossen**
+
+### Implementiert
+
+- **Tenant-isoliertes `cleanup chats`**: Löscht nur Chat-Einträge des aktiven Tenants
+  (vorher: gesamte `chat_history.json` geleert)
+- **`cleanup kunde`-Befehlsfamilie**: Kunden-PDFs in `temp/business_reports/` verwalten
+  - `cleanup kunde`         → alle Dokumente auflisten
+  - `cleanup kunde <Name>`  → Dokumente für diesen Kunden anzeigen
+  - `cleanup kunde <Name> !`→ Dokumente für diesen Kunden löschen (mit Bestätigung)
+  - `cleanup kunde all`     → alle Kunden-Dokumente löschen (mit Bestätigung)
+- **`cleanup all`**: nutzt jetzt ebenfalls Tenant-Filter (nicht mehr global)
+
+### Geänderte Files
+
+- `memory/history_manager.py` — `clear_tenant(tenant_id) → int` ergänzt
+- `tools/cleanup_manager.py`  — `cleanup_chats()` tenant-aware; `list_client_files()` + `cleanup_client()` neu
+- `core/main.py`              — `cleanup chats/all` mit `tenant_id`; vollständiger `cleanup kunde`-Handler
+- `core/ui.py`                — Dashboard: `cleanup kunde`-Zeile ergänzt
+
+### Notizen
+
+- `cleanup kunde` greift auf `temp/business_reports/` zu (lokale PDFs, kein Cloud-Upload).
+- Löschung nur mit explizitem `!`-Suffix oder `all` — kein versehentliches Löschen.
+- Tenant-Isolation in `cleanup chats` gilt rückwirkend: Legacy-Einträge ohne `tenant_id`
+  werden als `"self"` behandelt (History-Manager-Konvention).
+
+---
+
+## Bundle 12 — Business-Skill MVP (Gastro-Analyzer) (2026-05-12)
+
+**Status: ✅ Abgeschlossen**
+
+### Implementiert
+
+- **`skills/business/__init__.py`** (neu): Paket-Marker
+- **`skills/business/analyzer.py`** (neu): `GastroAnalyzer` + `AnalysisResult`
+  - `AnalysisResult` Dataclass: name, address, rating, review_count, phone, website,
+    categories, hours, competitors, instagram_handle/data, weaknesses_found,
+    kpi_snapshot, score (0-100), stub_mode, analyzed_at
+  - `GastroAnalyzer.run(query) → AnalysisResult` — vollständige Analyse-Pipeline:
+    1. `_fetch_place(query)` via `GoogleBusinessAdapter.search_place()`
+    2. `_fetch_competitors()` via `GoogleBusinessAdapter.search_radius()`
+    3. `_guess_instagram_handle()` + `_fetch_instagram()` via `InstagramPublicAdapter`
+    4. `_detect_weaknesses()` — mappt 9 Schwachstellen-IDs aus `knowledge/gastro.yaml`
+       gegen erkannte Datenpunkte (rating, review_count, website, instagram_data, etc.)
+    5. `_build_kpi_snapshot()` — Ist-Werte aus Daten gegen Ziele aus gastro.yaml
+    6. `_calc_score()` — 100 minus Severity-Abzüge (hoch:-20, mittel:-10, niedrig:-5)
+  - `GastroAnalyzer.to_report_data(result) → dict` — kwargs für `build_analyse_report()`
+    - findings, recommendations (tool-mapped), kpis, next_steps, stub_note
+  - `_build_recommendations()` — mappt Schwachstellen auf Tool-Empfehlungen aus gastro.yaml
+  - `_build_next_steps()` — konkrete nächste Schritte basierend auf erkannten IDs
+  - Log-Marker: `[BUSINESS-ANALYSE]`, `[BUSINESS-SCHWACHSTELLE]`
+- **`skills/business/interview.py`** (neu): `WorkflowInterview`
+  - 10 strukturierte Fragen: Sitzplätze, Reservierung, Kassensystem, Social-Media-
+    Verantwortung, Post-Frequenz, Bewertungsantworten, Lieferdienst, Newsletter,
+    Herausforderung, Ziel 3 Monate
+  - `format_question()` → formatierte Frage für Terminal
+  - `answer(user_input)` → speichert Antwort, rückt Index vor
+  - `is_done()`, `progress()` → Navigation
+  - `get_summary() → dict` — alle Antworten + abgeleitete Insights
+  - `to_report_notes() → str` — Textblock für PDF-Notizen-Feld
+  - `_derive_insights()` — erkennt Muster: inaktives Social-Media, keine Bewertungsantworten,
+    Telefon-only Reservierung, kein Lieferdienst, kein Newsletter, kein Verantwortlicher
+  - Log-Marker: `[BUSINESS-INTERVIEW]`
+- **`skills/business/business_skill.py`** (neu): `BusinessSkill(Skill)`
+  - triggers: `{"business", "analyse", "analysiere"}`
+  - `description` gesetzt (Router-sichtbar)
+  - Befehle: `business analyse <query>`, `business report`, `business interview [name]`,
+    `business interview [name] report`, `business status`, `business` (Hilfe)
+  - Interview läuft **inline** via `ui.user_prompt()` innerhalb einer `handle()`-Invokation
+    (analog zum Vision-Handler in `main.py`) — kein main.py-State-Hack nötig
+  - Reports in `temp/business_reports/` (datei-sichere Namen via `_safe_filename()`)
+  - Log-Marker: `[BUSINESS-SKILL]`
+
+### Geänderte Files
+
+- `skills/business/__init__.py`       — **neu**
+- `skills/business/analyzer.py`       — **neu** (GastroAnalyzer)
+- `skills/business/interview.py`      — **neu** (WorkflowInterview)
+- `skills/business/business_skill.py` — **neu** (BusinessSkill)
+
+### Neue Status-APIs
+
+- `GastroAnalyzer.run(query) → AnalysisResult`
+- `GastroAnalyzer.last_result() → AnalysisResult | None`
+- `GastroAnalyzer.to_report_data(result) → dict`
+- `WorkflowInterview.current_question() → dict | None`
+- `WorkflowInterview.answer(user_input) → None`
+- `WorkflowInterview.is_done() → bool`
+- `WorkflowInterview.get_summary() → dict`
+- `WorkflowInterview.to_report_notes() → str`
+
+### Notizen
+
+- **Stub-Modus:** `GoogleBusinessAdapter` liefert Beispiel-Daten wenn `SERPAPI_API_KEY`
+  fehlt. `AnalysisResult.stub_mode=True` — Output warnt den User. Alle Logik läuft
+  trotzdem durch → vollständig testbar ohne echten API-Key.
+- **Inline-Interview-Pattern:** Interview blockiert den Main-Loop für Dauer des
+  Fragebogens (erwartetes Verhalten bei interaktivem Workflow). Kein Refactor von
+  `main.py` nötig — analog zum Vision-Handler.
+- **Reports:** `temp/business_reports/` liegt in `.gitignore` (Kundendaten) —
+  nur lokale Artefakte, kein Cloud-Upload.
+- **ARCHITECTURE.md:** Entscheidung 17 ergänzt (Inline-Interview-Pattern + Stub-Modus).
+- **Praxistest:** Vor Weiterentwicklung (Bundle 17 Business-Vermittler) soll der
+  Skill mit 5-10 echten Restaurants getestet werden (laut ROADMAP).
+
+---
+
+## Bundle 8.7 — Knowledge-Base-Pattern (2026-05-12)
+
+**Status: ✅ Abgeschlossen**
+
+### Implementiert
+
+- **`knowledge/__init__.py`** (neu): Paket-Marker
+- **`knowledge/loader.py`** (neu): `KnowledgeBase`-Klasse
+  - Lazy-Loader: scannt `knowledge/` beim ersten Zugriff, cached alle YAML-Dateien
+  - `list_branches() → list[str]` — verfügbare Branchen
+  - `get_branch(branch) → dict | None` — vollständige Branchen-Daten
+  - `get_weaknesses(branch) → list[dict]` — Schwachstellen (id, title, description, severity)
+  - `get_kpis(branch) → list[dict]` — KPIs (id, label, description, target, einheit)
+  - `get_tools(branch) → list[dict]` — Tool-Empfehlungen (name, category, url, cost)
+  - `get_sources(branch) → list[str]` — Datenquellen für Analyse
+  - `get_glossary(branch) → dict[str, str]` — Branchen-Glossar
+  - `get_label(branch) → str` — Anzeigename der Branche
+  - `get_status() → dict` — available, branches, count, directory
+  - `self_test() → dict` — für system_test: Subsystem "knowledge"
+  - Modul-Level Singleton: `get_knowledge_base()`, `get_status()`, `self_test()`
+  - Log-Marker: `[KNOWLEDGE-LOAD]`, `[KNOWLEDGE-MISS]`
+- **`knowledge/gastro.yaml`** (neu): Gastro-Branchenwissen
+  - 7 Datenquellen (Google Business, TripAdvisor, Instagram, Lieferando, etc.)
+  - 10 typische Schwachstellen mit severity (hoch/mittel/niedrig)
+  - 8 KPIs mit Zielwerten (Bewertungsschnitt, Antwortrate, Post-Frequenz, etc.)
+  - 9 Tool-Empfehlungen mit Kategorie und Kosten
+  - 13 Glossar-Einträge (RevPASH, Prime Cost, HACCP, No-Show Rate, etc.)
+- **`tools/system_test.py`** (erweitert): 20. Subsystem `"knowledge"`
+  - Prüft ob YAML-Dateien geladen werden können
+  - Validiert: mindestens eine Branche vorhanden, weaknesses + kpis befüllt
+  - Status: ok / warn (keine YAMLs) / fail (Load-Fehler)
+  - Neuer Parameter `knowledge_base=` im Konstruktor (optional, Singleton-Fallback)
+
+### Geänderte Files
+
+- `knowledge/__init__.py`  — **neu**
+- `knowledge/loader.py`    — **neu** (KnowledgeBase + Singleton)
+- `knowledge/gastro.yaml`  — **neu** (Gastro-Branchenwissen)
+- `tools/system_test.py`   — `"knowledge"` (20. Subsystem), `knowledge_base` Parameter
+
+### Neue Status-APIs
+
+- `KnowledgeBase.get_status() → dict`      — available, branches, count, directory
+- `KnowledgeBase.self_test()  → dict`      — für system_test
+- `knowledge.loader.get_status()`          — Modul-Level (Singleton)
+- `knowledge.loader.self_test()`           — Modul-Level (Singleton)
+
+### Notizen
+
+- **Erweiterungs-Konvention:** Neue Branche = neue YAML-Datei ablegen, kein Code ändern.
+  Loader erkennt sie automatisch via `os.listdir()` beim nächsten Start.
+- **Verwendung in Bundle 12 (Business-Skill):** `get_weaknesses("gastro")` befüllt
+  Schwachstellen-Sektion im Analyse-Report; `get_kpis()` befüllt KPI-Tabelle im PDF.
+- **yaml.safe_load()** — kein `yaml.load()` mit vollem Loader (sicher gegen Code-Injection).
+- **ARCHITECTURE.md:** Entscheidung 16 ergänzt (YAML-Pattern + Erweiterungs-Konvention).
+
+---
+
+## Bundle 8.6 — PDF-Report-Generator (2026-05-11)
+
+**Status: ✅ Abgeschlossen**
+
+### Implementiert
+
+- **`tools/report.py`** (neu): PDF-Report-Generator via reportlab PLATYPUS
+  - `ReportMeta` — Branding-Dataclass (Titel, Untertitel, Kunden-Name/-Adresse, Datum, Vertraulich-Flag)
+  - `TextSection`, `BulletSection`, `TableSection` — typisierte Inhalts-Bausteine
+  - `ReportBuilder` — Kern-Engine
+    - Branded Header: Logo (assets/logo.png falls vorhanden) oder Text-Fallback „ZUKI"
+    - Farb-Palette: Navy (#1A2744) + Akzentblau (#4F8EF7) + Hellblau (#EEF3FB)
+    - Footer-Hook (Canvas): Kunden-Name links, Datum zentriert, Seitenzahl rechts
+    - Alternierend gefärbte Tabellenzeilen (weiß / hellblau), Navy-Header
+    - `_render_text()`, `_render_bullets()` (bullet / numbered / check), `_render_table()`
+    - `build(sections, output_path, meta)` → absoluter Pfad zur erzeugten PDF
+    - `get_status()` → dict mit available, library, logo
+    - `self_test()` → erzeugt Minimal-PDF, prüft Größe, löscht sie wieder
+  - Template-Factories:
+    - `build_analyse_report()` — Gastro-Analyzer Erstgespräch-Report (Schwachstellen, KPIs, Empfehlungen, nächste Schritte)
+    - `build_steuer_report()` — Steuer-Übersicht (Dokumente-Tabelle, Kategorien-Zusammenfassung)
+    - `build_workflow_report()` — Workflow-Audit (Prozesse, Engpässe, Tool-Empfehlungen, Implementierungs-Roadmap)
+  - Modul-Level Status-API: `get_status()`, `self_test()`
+- **`tools/system_test.py`** (erweitert): 19. Subsystem `"report"`
+  - Erzeugt Minimal-PDF, prüft Dateigröße, löscht sie — ok/fail in < 1s
+
+### Geänderte Files
+
+- `tools/report.py`      — **neu** (PDF-Generator)
+- `tools/system_test.py` — `"report"` (19. Subsystem)
+
+### Neue Status-APIs
+
+- `ReportBuilder.get_status() → dict`   — available, library, logo
+- `ReportBuilder.self_test()  → dict`   — für system_test
+- `tools.report.get_status()`           — Modul-Level
+- `tools.report.self_test()`            — Modul-Level
+
+### Dependency
+
+- `reportlab==4.5.0` — neu installiert (pip install reportlab)
+
+### Notizen
+
+- Logo: `assets/logo.png` → wird automatisch eingebunden wenn vorhanden, sonst „ZUKI"-Text-Fallback
+- Test-PDFs in `temp/test_reports/` erzeugt (3-4 KB je Template) — manuell prüfbar
+- Alle Template-Factories akzeptieren optionale Parameter → robuste Defaults ohne Pflichtfelder außer Titel
+
+---
+
+## Bundle 8.5 — Web-Scraping-Layer (2026-05-11)
+
+**Status: ✅ Abgeschlossen**
+
+### Implementiert
+
+- **`tools/scraper.py`** (neu): Zentraler Web-Scraping-Layer
+  - `ScraperCache` — JSON-Disk-Cache in `temp/scraper_cache/` mit konfigurierbarem TTL (Standard: 6h)
+    - `get(key)` → Inhalt wenn frisch, sonst None
+    - `set(key, content)` — speichert mit Unix-Timestamp
+    - `invalidate(key)` — löscht Einzeleintrag
+    - `clear_expired()` → Anzahl gelöschter abgelaufener Einträge
+    - `clear_all()` → Anzahl gelöschter Einträge
+    - `stats()` → dict mit total, fresh, expired, ttl_seconds
+  - `Scraper` — Kern-Engine
+    - User-Agent-Pool: 8 moderne Browser-UAs (Chrome, Firefox, Safari — Win/Mac/Linux)
+    - UA-Rotation: round-robin via `_ua_index`
+    - Rate-Limiting: pro Domain — Mindestabstand via `SCRAPER_RATE_DELAY` (Standard: 2.0s)
+    - `fetch(url, bypass_cache, ttl)` → HTML-Inhalt oder None
+    - `fetch_json(url, params, bypass_cache)` → dict/list oder None
+    - `get_status()` → dict mit available, total_fetched, total_cached, errors, rate_delay, cache
+    - `self_test()` → dict für system_test-Integration
+  - `GoogleBusinessAdapter` — SerpAPI-Integration
+    - `search_place(query)` → place_results dict (SerpAPI live oder Stub)
+    - `search_radius(query, lat, lng)` → local_results list
+    - Stub-Modus wenn `SERPAPI_API_KEY` nicht konfiguriert
+    - LIVE UPGRADE Kommentare mit vollständigen SerpAPI-Params-Beispielen
+  - `InstagramPublicAdapter` — Öffentliche Profil-Daten
+    - `get_profile(username)` → Profil-dict
+    - `get_recent_posts(username, limit)` → Post-Liste
+    - Stub-Modus wenn `INSTAGRAM_ACCESS_TOKEN` nicht konfiguriert
+    - LIVE UPGRADE mit Option A (Basic Display API) und Option B (Public Scraper)
+  - Modul-Level Singleton: `get_scraper()`, `get_google_business_adapter()`, `get_instagram_adapter()`
+  - Modul-Level Status-API: `get_status()`, `self_test()`
+  - `_write_error_log` + `_friendly_error` — analog api_manager.py-Pattern
+- **`tools/system_test.py`** (erweitert): 18. Subsystem `"scraper"`
+  - Prüft: requests-Bibliothek verfügbar, Cache-Verzeichnis erstellbar, SERPAPI_API_KEY konfiguriert
+  - Status: ok wenn SerpAPI konfiguriert, warn wenn Stub-Modus
+
+### Geänderte Files
+
+- `tools/scraper.py`      — **neu** (Scraping-Layer)
+- `tools/system_test.py`  — `"scraper"` (18. Subsystem)
+
+### Neue Status-APIs
+
+- `Scraper.get_status() → dict`     — available, fetched, cached, errors, rate_delay, cache
+- `Scraper.self_test()  → dict`     — für system_test
+- `tools.scraper.get_status()`      — Modul-Level (Singleton)
+- `tools.scraper.self_test()`       — Modul-Level (Singleton)
+
+### ENV-Variablen (neu, optional)
+
+- `SCRAPER_CACHE_TTL`   — Cache-Lebenszeit in Sekunden (Standard: 21600 = 6h)
+- `SCRAPER_RATE_DELAY`  — Mindestabstand pro Domain in Sekunden (Standard: 2.0)
+- `SERPAPI_API_KEY`     — bereits in .env als Platzhalter vorhanden → LIVE UPGRADE
+- `INSTAGRAM_ACCESS_TOKEN` — neu (optional, für Instagram Live)
+
+### Notizen
+
+- `requests` war bereits installiert — kein neues Dependency-Problem
+- Broker-Skill `skills/broker/scraper.py` bleibt unverändert (Mock-News-Fetcher für Broker-Skill)
+- `tools/scraper.py` ist die wiederverwendbare Infrastruktur für Business-, Office-, Broker-Skills
+- Cache speichert in `temp/scraper_cache/` — wird von cleanup_manager's `temp/`-Bereinigung erfasst
+
+---
+
 ## Bundle 8 — Plattform-Agnostik (2026-05-11)
 
 **Status: ✅ Abgeschlossen**

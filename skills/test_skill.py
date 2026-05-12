@@ -10,8 +10,9 @@ from skills.base import Skill
 
 
 class PingSkill(Skill):
-    name     = "ping"
-    triggers = {"ping"}
+    name         = "ping"
+    triggers     = {"ping"}
+    tenant_aware = False   # Test-Skill, kein Kundenbezug
 
     def handle(self, context: dict) -> str | None:
         return "pong  ·  Skill-System funktioniert."

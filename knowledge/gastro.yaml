@@ -1,0 +1,227 @@
+# knowledge/gastro.yaml — Branchen-Wissen: Gastronomie
+# Erweiterbar: Einträge per PR oder manuell ergänzen
+# Schema-Version: 1
+
+branch: gastro
+label: Gastronomie
+
+# ── Typische Datenquellen für Analyse ─────────────────────────────────────────
+sources:
+  - Google Business Profile
+  - Google Maps Bewertungen
+  - TripAdvisor
+  - Instagram (öffentlich)
+  - Facebook (öffentlich)
+  - Lieferdienst-Portale (Lieferando, Uber Eats)
+  - Eigene Website (Impressum, Speisekarte, Buchungssystem)
+
+# ── Typische Schwachstellen ────────────────────────────────────────────────────
+weaknesses:
+  - id: keine_bewertungsantworten
+    title: Keine Antworten auf Google-Bewertungen
+    description: >
+      Betriebe die gar nicht oder selten auf Kundenbewertungen antworten
+      wirken desinteressiert. Google wertet Interaktion als Qualitätssignal
+      und bevorzugt aktive Profile im lokalen Ranking.
+    severity: hoch
+
+  - id: niedrige_bewertungsanzahl
+    title: Zu wenige Bewertungen
+    description: >
+      Unter 50 Bewertungen gilt für Gastronomie als kritische Schwelle.
+      Neukunden vertrauen Betrieben mit wenigen Bewertungen weniger.
+      Aktive Bewertungs-Kampagnen (QR-Code am Tisch, Kassenbon-Hinweis)
+      helfen innerhalb weniger Wochen.
+    severity: hoch
+
+  - id: schlechte_bewertung
+    title: Durchschnitt unter 4.0 Sterne
+    description: >
+      Unter 4.0 brechen viele Nutzer die Suche ab. Häufige Ursachen:
+      Wartezeit, Kommunikationsprobleme, Konsistenzprobleme in der Küche.
+      Ohne aktives Reputations-Management verschlechtert sich der Schnitt
+      weiter da unzufriedene Gäste häufiger Bewertungen hinterlassen.
+    severity: hoch
+
+  - id: keine_online_reservierung
+    title: Kein Online-Reservierungssystem
+    description: >
+      Gäste die nicht telefonieren möchten (besonders unter 35) buchen
+      Betriebe ohne Online-Buchung seltener. Tools wie OpenTable, TheFork
+      oder direkte Google-Reservierung sind oft kostenlos für den Betrieb.
+    severity: mittel
+
+  - id: veraltete_speisekarte
+    title: Speisekarte nicht digital oder veraltet
+    description: >
+      Kunden suchen Speisekarten vor dem Besuch online. Fehlende oder
+      veraltete Karten (z. B. nur als nicht-durchsuchbares PDF) sind ein
+      Conversion-Killer. Google Business Profile erlaubt direkte
+      Menü-Einträge ohne Website.
+    severity: mittel
+
+  - id: inaktive_social_media
+    title: Inaktive oder fehlende Social-Media-Präsenz
+    description: >
+      Weniger als 1 Post pro Woche auf Instagram oder Facebook gilt als
+      inaktiv. Regelmäßige Tagesgerichte, Behind-the-Scenes oder
+      Sonderaktionen erhöhen Reichweite und Stammgäste-Bindung.
+    severity: mittel
+
+  - id: kein_lieferdienst
+    title: Kein Angebot auf Lieferplattformen
+    description: >
+      Besonders in urbanen Gebieten entgehen Betrieben ohne Lieferando-
+      oder Uber-Eats-Präsenz signifikante Umsätze. Provisionen (15-30%)
+      sind hoch, aber die Reichweite kompensiert dies oft in der
+      Anlaufphase.
+    severity: niedrig
+
+  - id: fehlendes_google_profil
+    title: Unvollständiges Google Business Profile
+    description: >
+      Fehlende Öffnungszeiten, kein Foto, keine Kategorie oder veraltete
+      Telefonnummer reduzieren die Sichtbarkeit massiv. Vollständige
+      Profile ranken bei Google Maps deutlich besser.
+    severity: hoch
+
+  - id: keine_seo_website
+    title: Website nicht SEO-optimiert
+    description: >
+      Ohne lokale SEO-Optimierung (Stadtteil + Küche in Titel-Tags,
+      strukturierte Daten für Restaurants) findet Google die Website
+      nicht für relevante Suchanfragen. Viele Betriebe haben keine
+      Website oder eine die auf Mobilgeräten nicht funktioniert.
+    severity: mittel
+
+  - id: kein_newsletter
+    title: Keine Stammgäste-Bindung via Newsletter oder Loyalty
+    description: >
+      Ohne direkten Kommunikationskanal zu Stammgästen (Newsletter,
+      WhatsApp-Broadcast, Stempelkarte digital) fehlt der Hebel für
+      ruhige Tage oder kurzfristige Aktionen.
+    severity: niedrig
+
+# ── Wichtige Kennzahlen (KPIs) ────────────────────────────────────────────────
+kpis:
+  - id: bewertungs_schnitt
+    label: Google-Bewertungsschnitt
+    description: Durchschnittliche Sternebewertung auf Google Maps
+    target: "≥ 4.3 Sterne"
+    einheit: Sterne (1-5)
+
+  - id: bewertungs_anzahl
+    label: Anzahl Google-Bewertungen
+    description: Gesamtanzahl der Google-Rezensionen
+    target: "≥ 100 (Minimum: 50)"
+    einheit: Anzahl
+
+  - id: antwortrate
+    label: Antwortrate auf Bewertungen
+    description: Prozentsatz der Bewertungen die eine Antwort vom Betrieb erhalten haben
+    target: "≥ 80%"
+    einheit: Prozent
+
+  - id: post_frequenz
+    label: Social-Media-Posting-Frequenz
+    description: Durchschnittliche Anzahl Posts pro Woche (Instagram + Facebook kombiniert)
+    target: "≥ 3 Posts/Woche"
+    einheit: Posts/Woche
+
+  - id: profil_vollstaendigkeit
+    label: Google-Profil-Vollständigkeit
+    description: >
+      Checkliste: Öffnungszeiten, Telefon, Website, Fotos (min. 10),
+      Kategorie, Beschreibung, Menü, Attribute (Sitzplätze, WLAN etc.)
+    target: "100% (alle 8 Felder befüllt)"
+    einheit: Vollständigkeit (%)
+
+  - id: website_mobile
+    label: Mobile-Freundlichkeit der Website
+    description: Google PageSpeed Mobile Score
+    target: "≥ 70 Punkte"
+    einheit: Punkte (0-100)
+
+  - id: lieferdienst_rating
+    label: Lieferdienst-Bewertung
+    description: Durchschnittliche Bewertung auf Lieferando / Uber Eats
+    target: "≥ 4.2 Sterne"
+    einheit: Sterne (1-5)
+
+  - id: tripadvisor_rang
+    label: TripAdvisor-Rang im Umkreis
+    description: Position im lokalen TripAdvisor-Ranking (je niedriger desto besser)
+    target: "Top 20% der Kategorie im Ort"
+    einheit: Rang
+
+# ── Tool-Empfehlungen ─────────────────────────────────────────────────────────
+tools:
+  - name: Google Business Profile
+    category: Sichtbarkeit
+    description: Kostenloses Google-Unternehmensprofil — Pflichtbasis für lokale Sichtbarkeit
+    url: "https://business.google.com"
+    cost: kostenlos
+
+  - name: TheFork (ehemals Lafourchette)
+    category: Reservierung
+    description: Online-Reservierungssystem mit Google-Integration und Gästedatenbank
+    url: "https://restaurant.thefork.com"
+    cost: provisionsbasiert (ca. 2€/Couverts)
+
+  - name: OpenTable
+    category: Reservierung
+    description: Marktführer USA/UK, wächst in Deutschland — gut für gehobene Gastronomie
+    url: "https://restaurant.opentable.com"
+    cost: ab 249$/Monat (DE variabel)
+
+  - name: Lieferando Partner
+    category: Lieferung
+    description: Größter Lieferdienst in Deutschland — Reichweite vs. hohe Provision abwägen
+    url: "https://partner.lieferando.de"
+    cost: ca. 13-30% Provision pro Bestellung
+
+  - name: Canva für Gastronomie
+    category: Social Media
+    description: Einfache Grafik-Erstellung für Tagesgerichte, Story-Templates etc.
+    url: "https://www.canva.com"
+    cost: "kostenlos (Pro: 13€/Monat)"
+
+  - name: Later / Buffer
+    category: Social Media
+    description: Social-Media-Scheduling — Posts vorplanen für konsistente Frequenz
+    url: "https://later.com"
+    cost: ab 18€/Monat
+
+  - name: Mailchimp
+    category: Kundenbindung
+    description: Newsletter für Stammgäste — Aktionen, Events, Saisonkarten
+    url: "https://mailchimp.com"
+    cost: kostenlos bis 500 Kontakte
+
+  - name: Gastrofix / orderbird
+    category: POS / Kassensystem
+    description: iPad-basiertes Kassensystem mit Auswertungen und Lieferdienst-Integration
+    url: "https://www.orderbird.com"
+    cost: ab 79€/Monat
+
+  - name: SurveyMonkey / Typeform
+    category: Gästefeedback
+    description: Kurze Feedback-Umfragen per QR-Code am Tisch — bessere Steuerung als öffentliche Bewertungen
+    url: "https://www.typeform.com"
+    cost: kostenlos (Basis)
+
+# ── Branchen-Glossar ──────────────────────────────────────────────────────────
+glossary:
+  Couverts: "Anzahl servierter Gäste / Tischdeckungen — wichtige KPI für Auslastung"
+  RevPASH: "Revenue per Available Seat Hour — Umsatz pro verfügbarem Sitzplatz und Stunde"
+  Food Cost: "Wareneinsatz-Quote — Verhältnis Rohstoffkosten zu Gesamtumsatz (Ziel: 28-35%)"
+  Labor Cost: "Personalkosten-Quote — Verhältnis Personalkosten zu Gesamtumsatz (Ziel: 30-35%)"
+  Prime Cost: "Food Cost + Labor Cost zusammen (Ziel: unter 65%)"
+  Upselling: "Aktives Empfehlen höherpreisiger Speisen oder Getränke durch Servicepersonal"
+  Mise en Place: "Vorbereitung aller Zutaten und Utensilien vor dem Service"
+  HACCP: "Hazard Analysis Critical Control Points — Lebensmittelhygiene-Kontrollsystem (gesetzlich vorgeschrieben)"
+  Conversion Rate: "Anteil der Besucher (Website/Profil) die tatsächlich reservieren oder anrufen"
+  Churn: "Verlust von Stammgästen — wird oft unterschätzt, kostet mehr als Neukundengewinnung"
+  Dark Kitchen: "Lieferküche ohne Gastraum — nur für Lieferdienste, niedrige Fixkosten"
+  No-Show Rate: "Anteil der Reservierungen die ohne Absage nicht erscheinen (Ziel: unter 5%)"
+  Average Check: "Durchschnittlicher Bon pro Gast — wichtige KPI für Upselling-Erfolg"

@@ -59,6 +59,7 @@ class SystemTest:
         github_backup=None,
         tenant_mgr=None,
         router_agent=None,
+        knowledge_base=None,
     ):
         self._cloud      = cloud
         self._api_mgr    = api_mgr
@@ -72,6 +73,7 @@ class SystemTest:
         self._github     = github_backup
         self._tenant_mgr = tenant_mgr
         self._router     = router_agent
+        self._knowledge  = knowledge_base
 
         self._tests = {
             "cloud":      self._test_cloud,
@@ -91,6 +93,9 @@ class SystemTest:
             "router":     self._test_router,
             "cleanup":    self._test_cleanup,
             "platform":   self._test_platform,
+            "scraper":    self._test_scraper,
+            "report":     self._test_report,
+            "knowledge":  self._test_knowledge,
         }
 
     # ── Öffentliche API ───────────────────────────────────────────────────────
@@ -519,6 +524,42 @@ class SystemTest:
             name    = "platform",
             status  = "ok",
             summary = summary,
+        )
+
+    # ── Report ───────────────────────────────────────────────────────────────
+
+    def _test_report(self) -> TestResult:
+        from tools.report import self_test as report_self_test
+        result = report_self_test()
+        return TestResult(
+            name     = "report",
+            status   = result["status"],
+            summary  = result["summary"],
+            fix_hint = result.get("fix_hint", ""),
+        )
+
+    # ── Scraper ───────────────────────────────────────────────────────────────
+
+    def _test_scraper(self) -> TestResult:
+        from tools.scraper import self_test as scraper_self_test
+        result = scraper_self_test()
+        return TestResult(
+            name     = "scraper",
+            status   = result["status"],
+            summary  = result["summary"],
+            fix_hint = result.get("fix_hint", ""),
+        )
+
+    # ── Knowledge-Base ────────────────────────────────────────────────────────
+
+    def _test_knowledge(self) -> TestResult:
+        from knowledge.loader import self_test as kb_self_test
+        result = kb_self_test()
+        return TestResult(
+            name     = "knowledge",
+            status   = result["status"],
+            summary  = result["summary"],
+            fix_hint = result.get("fix_hint", ""),
         )
 
     # ── Router-Agent ──────────────────────────────────────────────────────────

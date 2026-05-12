@@ -63,6 +63,81 @@ TENANT_CMD       = "tenant"
 SCRAPER_INTERVAL = int(os.getenv("SCRAPER_INTERVAL", "600"))  # default 10 min
 
 
+# ── Tenant-Guard ───────────────────────────────────────────────────────────────
+
+def _tenant_guard(skill, tenant_mgr) -> bool:
+    """
+    Prüft ob ein Skill im richtigen Tenant läuft.
+    Gibt True zurück wenn der Skill fortfahren darf, False wenn abgebrochen.
+
+    Steuerung via ENV SKILL_TENANT_GUARD:
+      warn (Standard) — warnt + fragt nach (weiter / tenant <Name> / nein)
+      auto            — warnt + fragt automatisch nach Tenant-Name, erstellt + wechselt,
+                        Skill läuft dann direkt im neuen Tenant weiter
+      off             — kein Guard (für alle Skills deaktiviert)
+
+    KONVENTION: Wird vor JEDEM Skill-Call aufgerufen (Schnellpfad + Router).
+    Skills mit tenant_aware=False (Test/Utility-Skills) werden übersprungen.
+    """
+    if not getattr(skill, "tenant_aware", True):
+        return True
+
+    guard_mode = os.getenv("SKILL_TENANT_GUARD", "warn").lower()
+    if guard_mode == "off":
+        return True
+
+    current = tenant_mgr.current() if tenant_mgr else "self"
+    if current != "self":
+        return True   # bereits in Kunden-Tenant — alles gut
+
+    # ── Im self-Tenant: warnen ─────────────────────────────────────────────────
+    if guard_mode == "auto":
+        ui.speak_zuki(
+            f"⚠️  Tenant-Warnung: Aktiver Workspace ist 'self' (Privat).\n"
+            f"    Für welchen Kunden/Projekt soll dieser Skill laufen?\n"
+            f"    Tenant-Name eingeben (z. B. 'client-eboli') oder Enter für 'self':"
+        )
+        answer = ui.user_prompt().strip()
+        if answer and answer.lower() not in {"self", "weiter", ""}:
+            tenant_name = answer.lower().replace(" ", "-")
+            tenant_mgr.create(tenant_name, {})
+            tenant_mgr.switch(tenant_name)
+            ui.system_msg(f"[Tenant] Gewechselt zu '{tenant_name}' — Skill läuft jetzt dort.")
+            log.info(f"[TENANT-GUARD] Auto-Switch zu '{tenant_name}'")
+        else:
+            log.info("[TENANT-GUARD] User bleibt in 'self'")
+        return True   # in jedem Fall fortfahren (entweder im neuen oder self Tenant)
+
+    else:  # warn (Standard)
+        ui.speak_zuki(
+            f"⚠️  Tenant-Warnung: Aktiver Workspace ist 'self' (Privat).\n"
+            f"    Für Kundendaten empfehlen wir einen eigenen Tenant.\n\n"
+            f"    weiter          → trotzdem in 'self' fortfahren\n"
+            f"    tenant <Name>   → Tenant anlegen + wechseln, Befehl danach wiederholen\n"
+            f"    nein            → abbrechen"
+        )
+        answer = ui.user_prompt().strip().lower()
+
+        if answer in {"weiter", "w", "ja", "j", "yes", "y"}:
+            log.info("[TENANT-GUARD] User hat 'weiter' in self-Tenant gewählt")
+            return True
+
+        if answer.startswith("tenant "):
+            tenant_name = answer[7:].strip().replace(" ", "-")
+            if tenant_name:
+                tenant_mgr.create(tenant_name, {})
+                tenant_mgr.switch(tenant_name)
+                ui.system_msg(
+                    f"[Tenant] '{tenant_name}' erstellt und aktiviert.\n"
+                    f"    Befehl bitte erneut eingeben — läuft jetzt unter '{tenant_name}'."
+                )
+                log.info(f"[TENANT-GUARD] Tenant '{tenant_name}' erstellt + gewechselt")
+            return False   # Skill nicht starten — User tippt Befehl neu
+
+        log.info("[TENANT-GUARD] Skill abgebrochen")
+        return False
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def load_env(paths: list[str]) -> None:
@@ -137,7 +212,7 @@ def display_startup_dashboard(llm, api_mgr, stt, tts, history, profile, tenant_m
         level         = profile.level,
         memory_count  = history.count,
         whisper_mode  = stt.mode_label,
-        tts_voice     = tts._voice_name,
+        tts_voice     = tts.get_status().get("voice", ""),
         vision_ok     = _check_vision(),
         tenant_name   = tenant_name,
     )
@@ -655,15 +730,22 @@ def run():
                 _cleaner = CleanupManager()
                 _results = {}
 
+                _current_tenant = tenant_mgr.current() if tenant_mgr else "self"
+
                 if _subname is None:
                     # Hilfe-Übersicht
                     ui.speak_zuki(
                         "Cleanup-Befehle:\n"
-                        "  cleanup vision   → Screenshots in temp/vision/ löschen\n"
-                        "  cleanup chats    → Lokale Chat-History löschen\n"
-                        "  cleanup old      → Alte Backup-Snapshots löschen (behält 3)\n"
-                        "  cleanup cloud    → Cloud-Memories bereinigen (schützt Bio)\n"
-                        "  cleanup all      → vision + chats + old (mit Bestätigung)"
+                        f"  (Aktiver Tenant: {_current_tenant})\n\n"
+                        "  cleanup vision          → Screenshots löschen\n"
+                        "  cleanup chats           → Chat-History dieses Tenants löschen\n"
+                        "  cleanup old             → Alte Backup-Snapshots löschen (behält 3)\n"
+                        "  cleanup cloud           → Cloud-Memories dieses Tenants bereinigen\n"
+                        "  cleanup all             → vision + chats + old (mit Bestätigung)\n\n"
+                        "  cleanup kunde           → Alle Kunden-Dokumente auflisten\n"
+                        "  cleanup kunde <Name>    → Dokumente für diesen Kunden anzeigen\n"
+                        "  cleanup kunde <Name> !  → Dokumente für diesen Kunden löschen\n"
+                        "  cleanup kunde all       → Alle Kunden-Dokumente löschen"
                     )
                     continue
 
@@ -672,12 +754,14 @@ def run():
 
                 elif _subname == "chats":
                     ui.speak_zuki(
-                        "Chat-History wirklich löschen?\n"
-                        "Alle lokalen Gesprächs-Einträge werden entfernt. (ja / nein)"
+                        f"Chat-History für Tenant '{_current_tenant}' löschen?\n"
+                        f"Andere Tenants bleiben unberührt. (ja / nein)"
                     )
                     _ans = ui.user_prompt()
                     if _ans.strip().lower() in {"ja", "j", "yes", "y"}:
-                        _results["chats"] = _cleaner.cleanup_chats(history_mgr=history)
+                        _results["chats"] = _cleaner.cleanup_chats(
+                            history_mgr=history, tenant_id=_current_tenant
+                        )
                     else:
                         ui.system_msg("[Cleanup] Abgebrochen.")
                         continue
@@ -711,16 +795,76 @@ def run():
                     _ans = ui.user_prompt()
                     if _ans.strip().lower() in {"ja", "j", "yes", "y"}:
                         _results["vision"]      = _cleaner.cleanup_vision()
-                        _results["chats"]       = _cleaner.cleanup_chats(history_mgr=history)
+                        _results["chats"]       = _cleaner.cleanup_chats(
+                            history_mgr=history, tenant_id=_current_tenant
+                        )
                         _results["old backups"] = _cleaner.cleanup_old_backups()
                     else:
                         ui.system_msg("[Cleanup] Abgebrochen.")
                         continue
 
+                elif _subname == "kunde":
+                    # cleanup kunde | cleanup kunde <Name> | cleanup kunde <Name> ! | cleanup kunde all
+                    _kunde_parts = cmd.split(None, 2)   # ["cleanup", "kunde", rest]
+                    _kunde_arg   = _kunde_parts[2].strip() if len(_kunde_parts) > 2 else ""
+                    _delete_flag = _kunde_arg.endswith("!")
+                    _kunde_name  = _kunde_arg.rstrip("!").strip()
+                    _delete_all  = _kunde_name.lower() == "all"
+
+                    if _delete_all:
+                        # Alle Kunden-Dokumente löschen
+                        _files = _cleaner.list_client_files()
+                        if not _files:
+                            ui.system_msg("[Cleanup] Keine Kunden-Dokumente vorhanden.")
+                            continue
+                        _list_str = "\n".join(f"  • {f['filename']} ({f['size_kb']} KB)" for f in _files)
+                        ui.speak_zuki(
+                            f"Alle {len(_files)} Kunden-Dokument(e) löschen?\n"
+                            f"{_list_str}\n\n(ja / nein)"
+                        )
+                        _ans = ui.user_prompt()
+                        if _ans.strip().lower() in {"ja", "j", "yes", "y"}:
+                            _results["kunde"] = _cleaner.cleanup_client()
+                        else:
+                            ui.system_msg("[Cleanup] Abgebrochen.")
+                            continue
+
+                    elif _delete_flag and _kunde_name:
+                        # cleanup kunde <Name> ! → sofort löschen
+                        _files = _cleaner.list_client_files(_kunde_name)
+                        if not _files:
+                            ui.system_msg(f"[Cleanup] Keine Dokumente für '{_kunde_name}' gefunden.")
+                            continue
+                        _list_str = "\n".join(f"  • {f['filename']} ({f['size_kb']} KB)" for f in _files)
+                        ui.speak_zuki(
+                            f"{len(_files)} Dokument(e) für '{_kunde_name}' löschen?\n"
+                            f"{_list_str}\n\n(ja / nein)"
+                        )
+                        _ans = ui.user_prompt()
+                        if _ans.strip().lower() in {"ja", "j", "yes", "y"}:
+                            _results["kunde"] = _cleaner.cleanup_client(_kunde_name)
+                        else:
+                            ui.system_msg("[Cleanup] Abgebrochen.")
+                            continue
+
+                    else:
+                        # Nur auflisten (cleanup kunde oder cleanup kunde <Name>)
+                        _files = _cleaner.list_client_files(_kunde_name)
+                        if not _files:
+                            _hint = f" für '{_kunde_name}'" if _kunde_name else ""
+                            ui.system_msg(f"[Cleanup] Keine Kunden-Dokumente{_hint} vorhanden.")
+                            continue
+                        _lines = [f"Kunden-Dokumente{' für ' + _kunde_name if _kunde_name else ''} ({len(_files)}):"]
+                        for f in _files:
+                            _lines.append(f"  • {f['filename']} ({f['size_kb']} KB)")
+                        _lines.append(f"\nLöschen: cleanup kunde {_kunde_name or '<Name>'} !")
+                        ui.speak_zuki("\n".join(_lines))
+                        continue
+
                 else:
                     ui.error_msg(
                         f"Unbekannter Cleanup-Befehl: '{_subname}'\n"
-                        "    Verfügbar: vision  chats  old  cloud  all"
+                        "    Verfügbar: vision  chats  old  cloud  kunde  all"
                     )
                     continue
 
@@ -732,6 +876,8 @@ def run():
             # ── Skill-Dispatch (Schnellpfad: exakter Trigger-Match) ───────────
             skill = skill_registry.get_skill_for(cmd)
             if skill:
+                if not _tenant_guard(skill, tenant_mgr):
+                    continue
                 history.append("user", user_input)
                 ui.thinking()
                 log.info(f"[SKILL-INVOKE] {skill.name} | cmd={cmd[:60]}")
@@ -775,6 +921,8 @@ def run():
                                 None,
                             )
                         if _sk is None:
+                            continue
+                        if not _tenant_guard(_sk, tenant_mgr):
                             continue
                         log.info(f"[ROUTER-INVOKE] {_sname} | input={user_input[:60]}")
                         _r = _sk.handle({

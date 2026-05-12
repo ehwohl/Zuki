@@ -92,23 +92,23 @@
 
 ## Phase 3 — Business-Foundation
 
-### Bundle 8.5 — Web-Scraping-Layer ⬜
+### Bundle 8.5 — Web-Scraping-Layer ✅
 - `tools/scraper.py` mit User-Agent-Rotation, Rate-Limiting
 - Adapter pro Quelle (Google Business Profile, Instagram Public, etc.)
 - Caching damit gleicher Lookup nicht 10× erfolgt
 - Wiederverwendbar von Broker, Business, Office Skills
 
-### Bundle 8.6 — PDF-Report-Generator ⬜
+### Bundle 8.6 — PDF-Report-Generator ✅
 - `tools/report.py` mit Template-System
 - Branded PDFs (Logo, Footer, Kunden-Daten)
 - Templates: Analyse-Report, Steuer-Übersicht, Workflow-Audit
 - Library: `reportlab` oder `weasyprint`
 
-### Bundle 8.7 — Knowledge-Base-Pattern ⬜
-- Branchen-spezifisches Wissen in `knowledge/` als YAML/JSON
-- Erweiterbar: Gastro zuerst, später Friseure, Handwerker, etc.
-- Pro Branche: Daten-Quellen, typische Schwachstellen, Tool-Empfehlungen,
-  KPIs, Branchen-Glossar
+### Bundle 8.7 — Knowledge-Base-Pattern ✅
+- Branchen-spezifisches Wissen in `knowledge/` als YAML
+- Gastro als erste Branche: Schwachstellen, KPIs, Tools, Datenquellen, Glossar
+- Erweiterbar: neue Branche = neue YAML-Datei, kein Code ändern
+- 20. system-test Subsystem "knowledge"
 
 ---
 
@@ -135,14 +135,14 @@
 - KEIN Voice-Swap und KEINE Beats hier (kommt später als
   separater Sub-Skill in Bundle 19)
 
-### Bundle 12 — Business-Skill MVP (Gastro-Analyzer) ⬜
-- Google Business Profile Scraper für eine Adresse
-- Konkurrenz-Analyse 1km-Radius
-- Social-Media-Public (Instagram, Facebook) Check
-- Schwachstellen-Erkennung (Bewertungs-Antwortrate, Post-Frequenz, etc.)
-- 1-2 Seiten PDF-Report für Erstgespräch
-- Manueller Workflow-Audit-Fragebogen (Zuki führt Interview)
-- **Praxistest mit 5-10 echten Restaurants vor Weiterentwicklung**
+### Bundle 12 — Business-Skill MVP (Gastro-Analyzer) ✅
+- ✅ GastroAnalyzer: Google Business Profile + Konkurrenz + Instagram
+- ✅ Schwachstellen-Erkennung aus knowledge/gastro.yaml (9 IDs, Score 0-100)
+- ✅ PDF-Report via tools/report.py (build_analyse_report)
+- ✅ Workflow-Audit-Fragebogen (10 Fragen, inline, optional mit PDF)
+- ✅ BusinessSkill: triggers business / analyse / analysiere
+- ✅ **Bundle 12.1:** Tenant-Guard für alle Skills + `cleanup kunde` + `cleanup chats` tenant-isoliert
+- **Praxistest mit 5-10 echten Restaurants vor Weiterentwicklung (Bundle 17)**
 
 ---
 
@@ -240,8 +240,8 @@ Konfliktauflösung zu komplex für aktuellen Use-Case (ein Rechner).
 
 ## Aktueller Fokus
 
-✅ **Bundle 8** abgeschlossen (Plattform-Agnostik — TTS + Window-Control-Backend-Pattern, Audio-In Validierung)
-⬜ **Nächste Schritte:** Bundle 8.5 (Web-Scraping-Layer) — tools/scraper.py mit User-Agent-Rotation, Rate-Limiting, Adapter pro Quelle
+✅ **Bundle 12.1** abgeschlossen (Tenant-Guard für alle Skills, `cleanup kunde`, tenant-isoliertes `cleanup chats`)
+⬜ **Nächste Schritte:** Praxistest mit echten Restaurants (5-10) → dann Bundle 9 (Coding-Scratchpad) oder Bundle 13 (UI-Foundation)
 
 ---
 
