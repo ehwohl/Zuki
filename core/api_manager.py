@@ -37,13 +37,12 @@ def _write_error_log(context: str, exc: Exception) -> None:
 
 # ── Gemini-Modell-Fallback-Kette ───────────────────────────────────────────────
 # Nur bei 404 / Model-Not-Found aktiv.
-# Reihenfolge: stabilste zuerst — 2.0-flash nur als letzter Ausweg.
+# Reihenfolge: stabilste zuerst. 1.5-Reihe ist deprecated (alle 404).
 _GEMINI_FALLBACK_MODELS = [
-    "gemini-1.5-flash-latest",   # primär (entspricht .env Standard)
-    "gemini-1.5-flash-002",
-    "gemini-1.5-flash-001",
-    "gemini-1.5-pro-latest",
-    "gemini-2.0-flash",          # nur Notfall-Fallback
+    "gemini-2.0-flash",          # primär (entspricht .env Standard, bestätigt funktional)
+    "gemini-2.0-flash-001",      # stabile Point-Version
+    "gemini-2.5-flash",          # neuer, ggf. nicht für jeden Key freigeschaltet
+    "gemini-2.5-pro",            # Premium-Fallback
 ]
 
 # ── Placeholder-Listen ─────────────────────────────────────────────────────────

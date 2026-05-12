@@ -216,19 +216,21 @@ class SystemTest:
         if t is None:
             return TestResult("tts", "fail", "TTSEngine nicht übergeben",
                               "SystemTest mit tts=tts instanziieren")
-        voice  = getattr(t, "_voice_name", "unbekannt")
-        pref   = getattr(t, "_preferred", "").lower()
-        engine = getattr(t, "_engine", None)
-        if engine is None:
-            return TestResult("tts", "fail", "pyttsx3-Engine nicht initialisiert",
+        # ab Bundle 8: TTSEngine ist Wrapper um Backend (WindowsTTS / LinuxTTS).
+        # Status-API liefert backend, voice, ready, platform.
+        try:
+            status = t.get_status()
+        except Exception as e:
+            return TestResult("tts", "fail", f"get_status() fehlgeschlagen: {e}",
+                              "TTSEngine.get_status() prüfen")
+        if not status.get("ready", False):
+            backend = status.get("backend", "?")
+            return TestResult("tts", "fail",
+                              f"Backend '{backend}' nicht bereit",
                               "pip install pyttsx3 / Windows SAPI5 prüfen")
-        if pref and pref not in voice.lower():
-            return TestResult(
-                "tts", "warn",
-                f"Aktive Stimme: \"{voice}\"  (bevorzugt: \"{getattr(t, '_preferred', '?')}\")",
-                f"Stimme nicht installiert? TTS_VOICE in .env anpassen",
-            )
-        return TestResult("tts", "ok", f"Stimme: \"{voice}\"")
+        backend = status.get("backend", "?")
+        voice   = status.get("voice", "unbekannt")
+        return TestResult("tts", "ok", f"{backend}  ·  Stimme: \"{voice}\"")
 
     # ── Vision ────────────────────────────────────────────────────────────────
 
