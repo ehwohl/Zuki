@@ -404,7 +404,8 @@ class GoogleBusinessAdapter:
 
     def __init__(self, scraper: "Scraper | None" = None) -> None:
         self._scraper  = scraper or get_scraper()
-        self._api_key  = os.getenv("SERPAPI_API_KEY", "")
+        # BUSINESS_SERPAPI_KEY hat Vorrang, Fallback auf SERPAPI_API_KEY
+        self._api_key  = os.getenv("BUSINESS_SERPAPI_KEY", "") or os.getenv("SERPAPI_API_KEY", "")
         self._key_ok   = bool(self._api_key) and "your-" not in self._api_key
 
     def available(self) -> bool:
@@ -471,6 +472,13 @@ class GoogleBusinessAdapter:
             "website": "https://example.com",
             "hours": {"Mo-Fr": "09:00-22:00", "Sa-So": "10:00-23:00"},
             "categories": ["Restaurant", "Gastronomie"],
+            "description": "Gemütliches Restaurant in bester Lage.",
+            "price_range": "€€",
+            "menu_link": "",
+            "booking_link": "",
+            "service_options": {"dine_in": True, "takeout": False, "delivery": False},
+            "images": [],           # 0 Fotos → Schwachstelle erkennbar
+            "owner_updates": [],    # keine Posts → Schwachstelle erkennbar
         }
 
     @staticmethod

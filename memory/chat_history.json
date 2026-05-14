@@ -1,113 +1,99 @@
 [
   {
     "role": "user",
-    "content": "business",
-    "timestamp": "2026-05-11T22:58:30.784618+00:00",
+    "content": "business analyse Restaurant Athen",
+    "timestamp": "2026-05-12T23:35:36.263172+00:00",
+    "source": "chat",
+    "tenant_id": "list"
+  },
+  {
+    "role": "assistant",
+    "content": "Analyse: restaurant athen  |  Score: 95/100  ⚠️  Stub-Daten (kein SerpAPI-Key)\nBewertung: 4.8 ⭐  (2614 Reviews)\n\nErkannte Schwachstellen (1):\n  🟢 Keine Stammgäste-Bindung via Newsletter oder Loyalty\n\nKonkurrenz im Umkreis: 20 Betriebe gefunden\n\n'business report'   → PDF-Report generieren\n'business interview <Name>'  → Workflow-Audit starten",
+    "timestamp": "2026-05-12T23:35:40.108872+00:00",
+    "source": "chat",
+    "tenant_id": "list"
+  },
+  {
+    "role": "user",
+    "content": "business analyse Restaurant Athen, Boizenburg",
+    "timestamp": "2026-05-12T23:54:08.028878+00:00",
     "source": "chat",
     "tenant_id": "self"
   },
   {
     "role": "assistant",
-    "content": "Business-Skill — Digitale Schwachstellen-Analyse\n\n  business analyse <Name oder Adresse>\n      → Google Business Profile, Bewertungen, Konkurrenz analysieren\n      → Schwachstellen aus Gastro-Wissens-Datenbank erkennen\n\n  business report\n      → PDF-Report aus letzter Analyse generieren\n\n  business interview <Name>\n      → Workflow-Audit-Fragebogen (10 Fragen zum Betriebsablauf)\n\n  business interview <Name> report\n      → Interview + automatisch PDF-Report erstellen\n\n  business status\n      → Letzte Analyse-Ergebnisse anzeigen\n\n  analyse <Name> / analysiere <Name>\n      → Kurzform für 'business analyse'",
-    "timestamp": "2026-05-11T22:58:30.786318+00:00",
+    "content": "Analyse: restaurant athen, boizenburg  |  Score: 95/100  ⚠️  Stub-Daten (kein SerpAPI-Key)\nBewertung: 4.7 ⭐  (247 Reviews)\n\nErkannte Schwachstellen (1):\n  🟢 Keine Stammgäste-Bindung via Newsletter oder Loyalty\n\nKonkurrenz im Umkreis: 20 Betriebe gefunden\n\n'business report'   → PDF-Report generieren\n'business interview <Name>'  → Workflow-Audit starten",
+    "timestamp": "2026-05-12T23:54:08.136802+00:00",
     "source": "chat",
     "tenant_id": "self"
   },
   {
     "role": "user",
-    "content": "business analyse Restaurant Eboli",
-    "timestamp": "2026-05-11T23:00:08.951049+00:00",
+    "content": "business analyse Restaurant Eboli, Boizenburg",
+    "timestamp": "2026-05-12T23:57:51.531948+00:00",
     "source": "chat",
     "tenant_id": "self"
   },
   {
     "role": "assistant",
-    "content": "Analyse fehlgeschlagen: No module named 'yaml'\nDetails in logs/error.log",
-    "timestamp": "2026-05-11T23:00:09.123744+00:00",
+    "content": "Analyse: restaurant eboli, boizenburg  |  Score: 75/100  ⚠️  Stub-Daten (kein SerpAPI-Key)\nBewertung: 3.7 ⭐  (329 Reviews)\n\nErkannte Schwachstellen (2):\n  🔴 Durchschnitt unter 4.0 Sterne\n  🟢 Keine Stammgäste-Bindung via Newsletter oder Loyalty\n\nKonkurrenz im Umkreis: 20 Betriebe gefunden\n\n'business report'   → PDF-Report generieren\n'business interview <Name>'  → Workflow-Audit starten",
+    "timestamp": "2026-05-12T23:57:54.839565+00:00",
     "source": "chat",
     "tenant_id": "self"
   },
   {
     "role": "user",
-    "content": "business analyse Kirchpl. 10, 19258 Boizenburg/Elbe",
-    "timestamp": "2026-05-11T23:00:50.503889+00:00",
+    "content": "business analyse restaurant athen, boizenburg",
+    "timestamp": "2026-05-12T23:59:18.260082+00:00",
     "source": "chat",
     "tenant_id": "self"
   },
   {
     "role": "assistant",
-    "content": "Analyse fehlgeschlagen: No module named 'yaml'\nDetails in logs/error.log",
-    "timestamp": "2026-05-11T23:00:50.523606+00:00",
+    "content": "Analyse: restaurant athen, boizenburg  |  Score: 95/100  ⚠️  Stub-Daten (kein SerpAPI-Key)\nBewertung: 4.7 ⭐  (247 Reviews)\n\nErkannte Schwachstellen (1):\n  🟢 Keine Stammgäste-Bindung via Newsletter oder Loyalty\n\nKonkurrenz im Umkreis: 20 Betriebe gefunden\n\n'business report'   → PDF-Report generieren\n'business interview <Name>'  → Workflow-Audit starten",
+    "timestamp": "2026-05-12T23:59:18.265483+00:00",
     "source": "chat",
     "tenant_id": "self"
   },
   {
     "role": "user",
-    "content": "business analyse Restaurant Eboli",
-    "timestamp": "2026-05-11T23:03:28.691244+00:00",
+    "content": "business analyse Sushi & Wok Lauenburg",
+    "timestamp": "2026-05-13T00:02:27.605823+00:00",
     "source": "chat",
     "tenant_id": "self"
   },
   {
     "role": "assistant",
-    "content": "Analyse: [Stub] restaurant eboli  |  Score: 100/100  ⚠️  Stub-Daten (kein SerpAPI-Key)\nBewertung: 4.2 ⭐  (87 Reviews)\n\nKeine kritischen Schwachstellen erkannt.\n\nKonkurrenz im Umkreis: 3 Betriebe gefunden\n\n'business report'   → PDF-Report generieren\n'business interview <Name>'  → Workflow-Audit starten",
-    "timestamp": "2026-05-11T23:03:28.859881+00:00",
+    "content": "Analyse: Sushi & Wok Lauenburg  |  Score: 75/100\nBewertung: 3.6 ⭐  (423 Reviews)\n\nErkannte Schwachstellen (2):\n  🔴 Durchschnitt unter 4.0 Sterne\n  🟢 Keine Stammgäste-Bindung via Newsletter oder Loyalty\n\nKonkurrenz im Umkreis: 20 Betriebe gefunden\n\n'business report'   → PDF-Report generieren\n'business interview <Name>'  → Workflow-Audit starten",
+    "timestamp": "2026-05-13T00:02:31.701176+00:00",
     "source": "chat",
     "tenant_id": "self"
   },
   {
     "role": "user",
-    "content": "business analyse Restaurant Eboli",
-    "timestamp": "2026-05-11T23:05:25.510339+00:00",
+    "content": "business analyse Restaurant Eboli, Boizenburg",
+    "timestamp": "2026-05-13T00:09:40.180142+00:00",
     "source": "chat",
     "tenant_id": "self"
   },
   {
     "role": "assistant",
-    "content": "Analyse: [Stub] restaurant eboli  |  Score: 95/100  ⚠️  Stub-Daten (kein SerpAPI-Key)\nBewertung: 4.2 ⭐  (87 Reviews)\n\nErkannte Schwachstellen (1):\n  🟢 Keine Stammgäste-Bindung via Newsletter oder Loyalty\n\nKonkurrenz im Umkreis: 3 Betriebe gefunden\n\n'business report'   → PDF-Report generieren\n'business interview <Name>'  → Workflow-Audit starten",
-    "timestamp": "2026-05-11T23:05:25.694452+00:00",
+    "content": "Analyse: Restaurant Eboli  |  Score: 50/100\nBewertung: 3.7 ⭐  (329 Reviews)\n\nErkannte Schwachstellen (5):\n  🔴 Durchschnitt unter 4.0 Sterne\n  🟡 Kein Online-Reservierungssystem\n  🟡 Speisekarte nicht digital oder veraltet\n  🟢 Kein Angebot auf Lieferplattformen\n  🟢 Keine Stammgäste-Bindung via Newsletter oder Loyalty\n\nKonkurrenz im Umkreis: 20 Betriebe gefunden\n\n'business report'   → PDF-Report generieren\n'business interview <Name>'  → Workflow-Audit starten",
+    "timestamp": "2026-05-13T00:09:40.510052+00:00",
     "source": "chat",
     "tenant_id": "self"
   },
   {
     "role": "user",
     "content": "business report",
-    "timestamp": "2026-05-11T23:07:26.199395+00:00",
+    "timestamp": "2026-05-13T00:10:17.144662+00:00",
     "source": "chat",
     "tenant_id": "self"
   },
   {
     "role": "assistant",
-    "content": "PDF-Report erstellt:\n  D:\\Zuki\\temp\\business_reports\\_Stub__restaurant_eboli.pdf",
-    "timestamp": "2026-05-11T23:07:26.608563+00:00",
-    "source": "chat",
-    "tenant_id": "self"
-  },
-  {
-    "role": "user",
-    "content": "business interview Restaurant Eboli",
-    "timestamp": "2026-05-11T23:10:19.842160+00:00",
-    "source": "chat",
-    "tenant_id": "self"
-  },
-  {
-    "role": "assistant",
-    "content": "Interview abgeschlossen — restaurant eboli\n\nErkannte Ansatzpunkte:\n  • Social-Media-Frequenz ausbaubar — Ziel: min. 3 Posts/Woche\n  • Bewertungsantworten fehlen komplett — Google-Ranking leidet\n  • Nur Telefon-Reservierung — Online-Buchung sperrt Zielgruppe unter 35 aus\n  • Kein Kundenbindungskanal — Stammgäste ohne Direktkommunikation\n\nTipp: 'business interview <Name> report' → PDF-Report automatisch erstellen",
-    "timestamp": "2026-05-11T23:16:19.895238+00:00",
-    "source": "chat",
-    "tenant_id": "self"
-  },
-  {
-    "role": "user",
-    "content": "business interview Restaurant Eboli report",
-    "timestamp": "2026-05-11T23:17:13.844229+00:00",
-    "source": "chat",
-    "tenant_id": "self"
-  },
-  {
-    "role": "assistant",
-    "content": "Interview abgeschlossen — restaurant eboli\n\nErkannte Ansatzpunkte:\n  • Social-Media-Frequenz ausbaubar — Ziel: min. 3 Posts/Woche\n  • Bewertungsantworten fehlen komplett — Google-Ranking leidet\n  • Nur Telefon-Reservierung — Online-Buchung sperrt Zielgruppe unter 35 aus\n  • Kein Kundenbindungskanal — Stammgäste ohne Direktkommunikation\n\nWorkflow-Report gespeichert:\n  D:\\Zuki\\temp\\business_reports\\restaurant_eboli_workflow.pdf",
-    "timestamp": "2026-05-11T23:18:52.950864+00:00",
+    "content": "PDF-Report erstellt:\n  D:\\Zuki\\temp\\business_reports\\Restaurant_Eboli.pdf",
+    "timestamp": "2026-05-13T00:10:17.377142+00:00",
     "source": "chat",
     "tenant_id": "self"
   }

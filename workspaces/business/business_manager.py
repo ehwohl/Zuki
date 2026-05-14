@@ -42,8 +42,8 @@ DATA_DIR  = os.path.join(_BUSINESS, "data")
 CUSTOMERS_FILE = os.path.join(DATA_DIR, "customers.json")
 TASKS_FILE     = os.path.join(DATA_DIR, "task_list.json")
 
-# Local CRM HTML file (default: web/crm/index.html)
-_CRM_FILE     = os.path.join(_ROOT, "web", "crm", "index.html")
+# Local CRM HTML file (default: workspaces/business/crm/index.html)
+_CRM_FILE     = os.path.join(_BUSINESS, "crm", "index.html")
 CRM_HTML_PATH = os.getenv("CRM_HTML_PATH", "") or _CRM_FILE
 
 # Column names expected in the HTML CRM (case-insensitive)
@@ -205,7 +205,7 @@ class BusinessManager:
 
     def open_crm(self) -> tuple[str, str]:
         """
-        Opens web/crm/index.html in the default browser.
+        Opens workspaces/business/crm/index.html in the default browser.
 
         Returns: (path: str, error: str)
           error is empty on success.
@@ -215,7 +215,7 @@ class BusinessManager:
         if not os.path.exists(_CRM_FILE):
             err = (
                 f"CRM-Datei nicht gefunden: {_CRM_FILE}\n"
-                f"Bitte ablegen unter: web/crm/index.html"
+                f"Bitte ablegen unter: workspaces/business/crm/index.html"
             )
             log.warning(err)
             return "", err
