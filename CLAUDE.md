@@ -35,6 +35,18 @@ Senior Software Architekt, pragmatischer Entwickler.
     - Cloud-Limit-Fallback → lokal statt SIM
 - Web-UI via lokalem Flask-Server (siehe ARCHITECTURE.md UI-Roadmap)
 
+## Tenant-Guard — Pflicht für neue Skills
+
+Jeder neue Skill der potenziell Kunden-Daten verarbeitet MUSS:
+- `tenant_aware = True` haben (ist der Default in `Skill` ABC — nichts tun reicht)
+- NICHT `tenant_aware = False` setzen außer der Skill hat garantiert keinen Kundenbezug
+
+Der Guard läuft automatisch in `main.py` vor jedem Skill-Call.
+Steuerung via `.env`: `SKILL_TENANT_GUARD=warn|auto|off`
+
+Reine Utility-/Test-Skills (kein Kundenbezug) → `tenant_aware = False` explizit setzen.
+Beispiele: PingSkill, ProfessorSkill.
+
 ## WICHTIG: Vorrang-Regel
 Bei Widersprüchen zwischen CLAUDE.md und ARCHITECTURE.md
 hat ARCHITECTURE.md Vorrang. CLAUDE.md ist Zusammenfassung,

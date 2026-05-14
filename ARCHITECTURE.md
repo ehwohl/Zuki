@@ -48,13 +48,30 @@ D:\Zuki\
 │   ├── github_backup.py         ← Off-Site Code-Backup via GitHub + Auto-Commit-Thread
 │   ├── instance_guard.py        ← Single-Instance-Lock via Socket
 │   ├── session_state.py         ← Crash-Detection + Session-Recovery
-│   ├── system_test.py           ← Selbst-Diagnose aller 13 Subsysteme
+│   ├── system_test.py           ← Selbst-Diagnose aller 20 Subsysteme
 │   ├── pc_control.py            ← PCControl delegiert ans WindowBackend
 │   └── window_control/          ← Window-Backend-Paket
 │       ├── backend.py           ← WindowBackend ABC
 │       ├── windows_backend.py   ← WindowsWindowBackend (Win32/ctypes)
 │       ├── linux_backend.py     ← LinuxWindowBackend (Stub)
 │       └── factory.py           ← get_window_backend() Factory
+│
+├── knowledge/
+│   ├── __init__.py              ← Paket-Marker
+│   ├── loader.py                ← KnowledgeBase-Klasse + Singleton get_knowledge_base()
+│   └── gastro.yaml              ← Branchen-Wissen: Gastronomie (Schwachstellen, KPIs, Tools, Glossar)
+│
+├── skills/
+│   ├── base.py                  ← Skill ABC
+│   ├── registry.py              ← Auto-Discovery
+│   ├── professor/professor.py   ← ProfessorSkill
+│   ├── broker/scraper.py        ← Broker-News-Fetcher
+│   ├── test_skill.py            ← PingSkill
+│   └── business/
+│       ├── __init__.py          ← Paket-Marker
+│       ├── business_skill.py    ← BusinessSkill (triggers: business, analyse, analysiere)
+│       ├── analyzer.py          ← GastroAnalyzer + AnalysisResult
+│       └── interview.py         ← WorkflowInterview (10-Fragen Fragebogen)
 │
 ├── zuki_cloud/                  ← Vercel Serverless API
 │   ├── api/index.py             ← Flask + Redis Endpoint
@@ -309,6 +326,75 @@ Stubs sind nie "verfügbar" (`available() = False`, `ready = False`).
 **Audio-In:** `sounddevice` ist plattform-neutral (portiert PortAudio). Auf Linux
 muss `portaudio19-dev` via apt installiert sein. `whisper_engine.py` prüft dies
 über `_SD_AVAILABLE` Flag und gibt plattformbewusste Fix-Hints wenn sounddevice fehlt.
+
+### 17. Business-Skill — Inline-Interview-Pattern (Bundle 12)
+
+**Was:** `BusinessSkill.handle()` führt das Workflow-Interview komplett inline durch —
+mit eigenen `ui.user_prompt()`-Aufrufen innerhalb einer einzigen `handle()`-Invokation.
+Keine Zustandsmaschine in `main.py`, kein Session-State-Hack.
+
+**Warum Inline statt State-Machine:**
+Die Alternative wäre gewesen, einen `active_interview`-Flag in `main.py` einzubauen
+und alle User-Inputs während des Interviews ans Skill weiterzuleiten. Das erfordert
+aber main.py-Änderungen und ist komplex. Das Inline-Pattern (analog zum Vision-Handler
+der ebenfalls `ui.user_prompt()` aufruft) ist sauberer — der Skill blockiert den
+Loop für die Dauer des Interviews, was bei einem interaktiven Fragebogen das gewollte
+Verhalten ist.
+
+**Komponenten:**
+- `GastroAnalyzer.run(query)` → `AnalysisResult` (Daten + Schwachstellen + Score)
+- `GastroAnalyzer.to_report_data(result)` → kwargs für `build_analyse_report()`
+- `WorkflowInterview` → 10 Fragen, `format_question()` / `answer()` / `get_summary()`
+- `BusinessSkill` → Dispatch auf analyse / interview / report / status
+
+**Reports landen in** `temp/business_reports/` — aus `.gitignore` ausgenommen,
+nur lokale Artefakte, kein Cloud-Upload.
+
+**Schwachstellen-Erkennung:**
+Basiert auf `knowledge/gastro.yaml` — `GastroAnalyzer._check_weakness(id, result)`
+mappt erkannte Datenpunkte auf YAML-Einträge. Score: 100 minus Abzüge pro Severity
+(hoch: -20, mittel: -10, niedrig: -5). Minimum: 0.
+
+**Stub-Modus:** Solange `SERPAPI_API_KEY` nicht konfiguriert ist, liefert
+`GoogleBusinessAdapter` Beispiel-Daten. `AnalysisResult.stub_mode=True` zeigt
+dies im Output an. Alle Analyse-Logik läuft trotzdem durch — so ist das Ergebnis
+testbar ohne echten API-Key.
+
+### 16. Knowledge-Base-Pattern — YAML-Branchen-Wissen (Bundle 8.7)
+
+**Was:** `knowledge/` enthält pro Branche eine YAML-Datei mit strukturiertem Fachwissen.
+`knowledge/loader.py` lädt alle YAMLs lazy beim ersten Zugriff und cached sie.
+Zugriff via `get_knowledge_base().get_weaknesses("gastro")` o.ä.
+
+**Erwartetes YAML-Schema:**
+- `branch` + `label` — Identifier und Anzeigename
+- `sources` — Liste der relevanten Datenquellen für Analyse
+- `weaknesses` — Typische Schwachstellen (id, title, description, severity)
+- `kpis` — Wichtige Kennzahlen (id, label, description, target, einheit)
+- `tools` — Tool-Empfehlungen (name, category, description, url, cost)
+- `glossary` — Branchen-Glossar als dict (Begriff → Erklärung)
+
+**Warum YAML statt Python-Dicts oder JSON:**
+- YAML ist lesbar und editierbar ohne Python-Kenntnisse
+- Multiline-Strings für Beschreibungen ohne Escaping
+- Einfach erweiterbar: neue Branche = neue Datei ablegen, kein Code ändern
+- `yaml.safe_load()` ist sicher (kein Code-Execution)
+
+**Erweiterungs-Konvention:**
+Neue Branche → neue Datei `knowledge/{branche}.yaml` mit Pflichtfeld `branch: {id}`.
+Der Loader erkennt sie automatisch beim nächsten Start. Kein Code ändern nötig.
+
+**Verwendung in Skills (Business-Skill, Bundle 12):**
+```python
+from knowledge.loader import get_knowledge_base
+kb = get_knowledge_base()
+weaknesses = kb.get_weaknesses("gastro")  # für Report-Befüllung
+kpis       = kb.get_kpis("gastro")        # für KPI-Tabelle im PDF
+tools      = kb.get_tools("gastro")       # für Tool-Empfehlungen
+```
+
+**20. Subsystem "knowledge"** in `system_test.py`: Prüft ob YAML-Dateien geladen
+werden können und mindestens eine Branche mit weaknesses + kpis existiert.
 
 ### 14. Zweistufiges Skill-Routing — Fast-Path + LLM-Router (Bundle 6)
 

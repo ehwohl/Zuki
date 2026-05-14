@@ -2,11 +2,21 @@
 cleanup_manager.py — Selektive Lösch-Befehle für Zuki
 ───────────────────────────────────────────────────────
 Befehle (via main.py):
-  cleanup vision   → Screenshots in temp/vision/ löschen
-  cleanup chats    → Lokale Chat-History löschen
-  cleanup old      → Alte Backup-Snapshots löschen (behält neueste 3)
-  cleanup cloud    → Cloud-Memories bereinigen (schützt Bio + system:true)
-  cleanup all      → vision + chats + old (mit Bestätigung, kein Auto-Cloud)
+  cleanup vision              → Screenshots in temp/vision/ löschen
+  cleanup chats               → Chat-History des AKTIVEN Tenants löschen
+  cleanup old                 → Alte Backup-Snapshots löschen (behält 3)
+  cleanup cloud               → Cloud-Memories des aktiven Tenants bereinigen
+  cleanup all                 → vision + chats + old (mit Bestätigung)
+  cleanup kunde               → Alle Kunden-Dokumente des aktiven Tenants auflisten
+  cleanup kunde <Name>        → Dokumente für diesen Kunden anzeigen + löschen
+  cleanup kunde all           → Alle Kunden-Dokumente des aktiven Tenants löschen
+
+Tenant-Verhalten:
+  cleanup chats   → nur aktiver Tenant (tenant_id-Filter in History)
+  cleanup cloud   → nur aktiver Tenant (Payload-Tenant im API-Call)
+  cleanup kunde   → nur temp/business_reports/ (lokale PDFs, nicht tenant-segregiert)
+  cleanup vision  → global (Screenshots haben keinen Tenant-Bezug)
+  cleanup old     → global (Snapshots sind Gesamtabbilder)
 
 Geschützte Daten — werden NIEMALS gelöscht:
   Lokal : .env, memory/user_profile_*.txt
@@ -19,15 +29,17 @@ Log-Marker: [CLEANUP]
 import os
 import glob
 import shutil
+from pathlib import Path
 
 from core.logger import get_logger
 
 log = get_logger("cleanup")
 
-_ROOT       = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-_VISION_DIR = os.path.join(_ROOT, "temp", "vision")
-_BACKUP_DIR = os.path.join(_ROOT, "backups")
-_HISTORY    = os.path.join(_ROOT, "memory", "chat_history.json")
+_ROOT        = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+_VISION_DIR  = os.path.join(_ROOT, "temp", "vision")
+_BACKUP_DIR  = os.path.join(_ROOT, "backups")
+_HISTORY     = os.path.join(_ROOT, "memory", "chat_history.json")
+_REPORTS_DIR = Path(_ROOT) / "temp" / "business_reports"
 
 _DEFAULT_KEEP_BACKUPS = 3
 
@@ -64,29 +76,37 @@ class CleanupManager:
         log.info(f"[CLEANUP] vision: {deleted} Datei(en) gelöscht")
         return {"deleted": deleted, "error": ""}
 
-    def cleanup_chats(self, history_mgr=None) -> dict:
+    def cleanup_chats(self, history_mgr=None, tenant_id: str = "self") -> dict:
         """
-        Löscht die lokale Chat-History.
-        Falls history_mgr übergeben: über .clear() leeren (Speicher + Disk).
-        Sonst: Datei direkt löschen.
+        Löscht Chat-History NUR für den angegebenen Tenant.
+        Andere Tenants bleiben unberührt.
+        Falls history_mgr übergeben: über .clear_tenant() filtern.
+        Ohne history_mgr: Datei direkt laden + filtern + zurückschreiben.
         """
         if history_mgr is not None:
-            count_before = getattr(history_mgr, "count", 0)
-            history_mgr.clear()
-            log.info(f"[CLEANUP] chats: {count_before} Nachrichten gelöscht (via HistoryManager)")
-            return {"deleted": count_before, "error": ""}
+            deleted = history_mgr.clear_tenant(tenant_id)
+            log.info(f"[CLEANUP] chats: {deleted} Nachrichten für tenant='{tenant_id}' gelöscht")
+            return {"deleted": deleted, "tenant": tenant_id, "error": ""}
 
+        # Ohne history_mgr: direkt in der JSON-Datei filtern
         if not os.path.exists(_HISTORY):
             log.info("[CLEANUP] chats: Keine History-Datei gefunden — nichts zu tun")
-            return {"deleted": 0, "error": ""}
+            return {"deleted": 0, "tenant": tenant_id, "error": ""}
 
         try:
-            os.remove(_HISTORY)
-            log.info("[CLEANUP] chats: chat_history.json gelöscht")
-            return {"deleted": 1, "error": ""}
-        except OSError as e:
-            log.error(f"[CLEANUP] chats: Löschen fehlgeschlagen: {e}")
-            return {"deleted": 0, "error": str(e)}
+            import json
+            with open(_HISTORY, encoding="utf-8") as f:
+                messages = json.load(f)
+            before   = len(messages)
+            messages = [m for m in messages if m.get("tenant_id", "self") != tenant_id]
+            deleted  = before - len(messages)
+            with open(_HISTORY, "w", encoding="utf-8") as f:
+                json.dump(messages, f, ensure_ascii=False, indent=2)
+            log.info(f"[CLEANUP] chats: {deleted} Nachrichten für tenant='{tenant_id}' gelöscht")
+            return {"deleted": deleted, "tenant": tenant_id, "error": ""}
+        except Exception as e:
+            log.error(f"[CLEANUP] chats: Fehler: {e}")
+            return {"deleted": 0, "tenant": tenant_id, "error": str(e)}
 
     def cleanup_old_backups(self, keep: int = _DEFAULT_KEEP_BACKUPS) -> dict:
         """
@@ -118,6 +138,51 @@ class CleanupManager:
 
         log.info(f"[CLEANUP] old: {deleted} gelöscht  ·  {kept} behalten")
         return {"deleted": deleted, "kept": kept, "error": ""}
+
+    # ── Kunden-Dokumente ──────────────────────────────────────────────────────
+
+    def list_client_files(self, name: str = "") -> list[dict]:
+        """
+        Listet alle Dateien in temp/business_reports/.
+        name (optional): Filtert nach Teilstring im Dateinamen (case-insensitive).
+        Gibt list[{"path": Path, "filename": str, "size_kb": int}] zurück.
+        """
+        if not _REPORTS_DIR.exists():
+            return []
+
+        needle = name.lower().replace(" ", "_") if name else ""
+        results = []
+        for f in sorted(_REPORTS_DIR.glob("*.pdf")):
+            if needle and needle not in f.name.lower():
+                continue
+            results.append({
+                "path":     f,
+                "filename": f.name,
+                "size_kb":  f.stat().st_size // 1024,
+            })
+        return results
+
+    def cleanup_client(self, name: str = "") -> dict:
+        """
+        Löscht Kunden-Dokumente in temp/business_reports/.
+        name leer → alle Dokumente löschen.
+        name gesetzt → nur Dokumente mit diesem Namen im Dateinamen.
+        Gibt {"deleted": int, "files": list[str], "error": str} zurück.
+        """
+        files   = self.list_client_files(name)
+        deleted = 0
+        names   = []
+        for entry in files:
+            try:
+                entry["path"].unlink()
+                deleted += 1
+                names.append(entry["filename"])
+                log.info(f"[CLEANUP] kunde: gelöscht: {entry['filename']}")
+            except OSError as e:
+                log.warning(f"[CLEANUP] kunde: Fehler bei {entry['filename']}: {e}")
+
+        log.info(f"[CLEANUP] kunde: {deleted} Dokument(e) gelöscht (filter='{name}')")
+        return {"deleted": deleted, "files": names, "error": ""}
 
     # ── Status-API ────────────────────────────────────────────────────────────
 

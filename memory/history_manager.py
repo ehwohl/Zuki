@@ -144,10 +144,22 @@ class HistoryManager:
         return len(t) < 3 or t in cls._FILLERS
 
     def clear(self) -> None:
-        """Wipe history from memory and disk."""
+        """Wipe ALL history from memory and disk (alle Tenants)."""
         self._messages = []
         self._save()
-        log.info("Chat-History gelöscht")
+        log.info("Chat-History gelöscht (alle Tenants)")
+
+    def clear_tenant(self, tenant_id: str) -> int:
+        """Löscht nur Einträge des angegebenen Tenants. Gibt Anzahl zurück."""
+        before = len(self._messages)
+        self._messages = [
+            m for m in self._messages
+            if m.get("tenant_id", "self") != tenant_id
+        ]
+        deleted = before - len(self._messages)
+        self._save()
+        log.info(f"Chat-History gelöscht: {deleted} Einträge für tenant='{tenant_id}'")
+        return deleted
 
     @property
     def count(self) -> int:

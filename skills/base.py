@@ -23,6 +23,16 @@ class Skill(ABC):
     triggers: set[str] = set()     # Befehlswörter die diesen Skill auslösen
     description: str   = ""        # Kurzbeschreibung für den Router-Agent
 
+    # ── Tenant-Guard ──────────────────────────────────────────────────────────
+    # True  (Standard): Zuki warnt bevor Skill im 'self'-Tenant läuft.
+    # False: Kein Guard — für interne/Test-Skills ohne Kundenbezug (z. B. PingSkill).
+    #
+    # KONVENTION FÜR NEUE SKILLS:
+    #   - Jeder neue Skill der potenziell Kunden-Daten verarbeitet → tenant_aware = True (Default)
+    #   - Reine Utility-Skills ohne Kundenbezug → tenant_aware = False explizit setzen
+    #   - Im Zweifel: True lassen — der Guard kostet nichts wenn man im richtigen Tenant ist
+    tenant_aware: bool = True
+
     @abstractmethod
     def handle(self, context: dict) -> str | None:
         """

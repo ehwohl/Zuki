@@ -59,6 +59,7 @@ class SystemTest:
         github_backup=None,
         tenant_mgr=None,
         router_agent=None,
+        knowledge_base=None,
     ):
         self._cloud      = cloud
         self._api_mgr    = api_mgr
@@ -72,6 +73,7 @@ class SystemTest:
         self._github     = github_backup
         self._tenant_mgr = tenant_mgr
         self._router     = router_agent
+        self._knowledge  = knowledge_base
 
         self._tests = {
             "cloud":      self._test_cloud,
@@ -91,6 +93,9 @@ class SystemTest:
             "router":     self._test_router,
             "cleanup":    self._test_cleanup,
             "platform":   self._test_platform,
+            "scraper":    self._test_scraper,
+            "report":     self._test_report,
+            "knowledge":  self._test_knowledge,
         }
 
     # ── Öffentliche API ───────────────────────────────────────────────────────
@@ -211,19 +216,21 @@ class SystemTest:
         if t is None:
             return TestResult("tts", "fail", "TTSEngine nicht übergeben",
                               "SystemTest mit tts=tts instanziieren")
-        voice  = getattr(t, "_voice_name", "unbekannt")
-        pref   = getattr(t, "_preferred", "").lower()
-        engine = getattr(t, "_engine", None)
-        if engine is None:
-            return TestResult("tts", "fail", "pyttsx3-Engine nicht initialisiert",
+        # ab Bundle 8: TTSEngine ist Wrapper um Backend (WindowsTTS / LinuxTTS).
+        # Status-API liefert backend, voice, ready, platform.
+        try:
+            status = t.get_status()
+        except Exception as e:
+            return TestResult("tts", "fail", f"get_status() fehlgeschlagen: {e}",
+                              "TTSEngine.get_status() prüfen")
+        if not status.get("ready", False):
+            backend = status.get("backend", "?")
+            return TestResult("tts", "fail",
+                              f"Backend '{backend}' nicht bereit",
                               "pip install pyttsx3 / Windows SAPI5 prüfen")
-        if pref and pref not in voice.lower():
-            return TestResult(
-                "tts", "warn",
-                f"Aktive Stimme: \"{voice}\"  (bevorzugt: \"{getattr(t, '_preferred', '?')}\")",
-                f"Stimme nicht installiert? TTS_VOICE in .env anpassen",
-            )
-        return TestResult("tts", "ok", f"Stimme: \"{voice}\"")
+        backend = status.get("backend", "?")
+        voice   = status.get("voice", "unbekannt")
+        return TestResult("tts", "ok", f"{backend}  ·  Stimme: \"{voice}\"")
 
     # ── Vision ────────────────────────────────────────────────────────────────
 
@@ -519,6 +526,42 @@ class SystemTest:
             name    = "platform",
             status  = "ok",
             summary = summary,
+        )
+
+    # ── Report ───────────────────────────────────────────────────────────────
+
+    def _test_report(self) -> TestResult:
+        from tools.report import self_test as report_self_test
+        result = report_self_test()
+        return TestResult(
+            name     = "report",
+            status   = result["status"],
+            summary  = result["summary"],
+            fix_hint = result.get("fix_hint", ""),
+        )
+
+    # ── Scraper ───────────────────────────────────────────────────────────────
+
+    def _test_scraper(self) -> TestResult:
+        from tools.scraper import self_test as scraper_self_test
+        result = scraper_self_test()
+        return TestResult(
+            name     = "scraper",
+            status   = result["status"],
+            summary  = result["summary"],
+            fix_hint = result.get("fix_hint", ""),
+        )
+
+    # ── Knowledge-Base ────────────────────────────────────────────────────────
+
+    def _test_knowledge(self) -> TestResult:
+        from knowledge.loader import self_test as kb_self_test
+        result = kb_self_test()
+        return TestResult(
+            name     = "knowledge",
+            status   = result["status"],
+            summary  = result["summary"],
+            fix_hint = result.get("fix_hint", ""),
         )
 
     # ── Router-Agent ──────────────────────────────────────────────────────────

@@ -120,12 +120,14 @@ class WindowsTTS(TTSBackend):
         for voice in voices:
             if "german" in voice.name.lower() or "deutsch" in voice.name.lower():
                 self._engine.setProperty("voice", voice.id)
-                log.warning(
-                    f"[TTS-WIN] Stimme '{self._preferred}' nicht gefunden. "
-                    f"Nutze: {voice.name}"
+                # info statt warning — wenn eine deutsche Stimme verfügbar ist,
+                # ist das OK, kein Drama. Nur informativ falls TTS_VOICE updaten.
+                log.info(
+                    f"[TTS-WIN] Stimme '{self._preferred}' nicht installiert — "
+                    f"nutze stattdessen: {voice.name}"
                 )
                 return voice.name
 
         default = voices[0].name if voices else "System-Standard"
-        log.warning(f"[TTS-WIN] Keine deutsche Stimme. Fallback: {default}")
+        log.warning(f"[TTS-WIN] Keine deutsche Stimme installiert. Fallback: {default}")
         return f"{default} (Fallback)"
