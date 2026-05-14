@@ -1,6 +1,71 @@
 # CHANGELOG — Zuki AI Assistant
 
-Alle Änderungen chronologisch dokumentiert. Neueste Einträge oben.
+All changes documented in reverse chronological order. Newest entries first.
+
+---
+
+## Bundle 9 — Coding-Skill + Scratchpad (2026-05-13)
+
+**Status: ✅ Abgeschlossen**
+
+### Implementiert
+
+- **`workspaces/coding/__init__.py`** (neu): Paket-Marker
+- **`workspaces/coding/buffer.py`** (neu): `CodeBuffer`-Klasse
+  - Persistente JSON-Datei `temp/coding_buffers.json` (Buffer + aktive Sprache)
+  - `get(lang)`, `set(lang, code)`, `append_line(lang, line)`, `clear(lang)`
+  - `set_active(lang)`, `active()` — aktive Sprache für `code run` / `code show`
+  - `has_content() → list[str]` — Sprachen mit nicht-leerem Buffer
+  - `get_status() → dict`
+  - Sprachen: `python`, `js`, `ts`, `bash`, `go`, `pine`
+- **`workspaces/coding/sandbox.py`** (neu): Isolierte Code-Ausführung
+  - `run_code(lang, code, timeout=10) → RunResult`
+  - `is_available(lang) → tuple[bool, str]` — Interpreter-Check
+  - `RunResult` Dataclass: stdout, stderr, returncode, timed_out, error, success, format_output()
+  - Temp-Datei pro Run in `temp/sandbox/` — wird nach Ausführung gelöscht
+  - Unterstützte Runner: Python (sys.executable), JS (node), TS (ts-node), Bash (bash), Go (go run)
+  - Pine Script: kein Runner — explizit nicht ausführbar
+- **`workspaces/coding/coding_skill.py`** (neu): `CodingSkill(Skill)`
+  - triggers: `{"code", "coding", "skript", "script"}`
+  - `tenant_aware = False` (kein Kundenbezug)
+  - Befehle: `code <lang>`, `code <lang> show/run/edit/add/set/clear`, `code run`, `code show`, `code status`
+  - Interaktiver Multiline-Editor via `code <lang> edit` (analog Interview-Pattern)
+    - Modus-Wahl beim Start: Buffer ersetzen oder Zeilen anhängen
+    - `END`/`fertig` → speichern  |  `run` → speichern + direkt ausführen  |  `abbrechen` → verwerfen
+  - Sprach-Aliase normalisiert: `py`→`python`, `node`→`js`, `sh`→`bash`, `golang`→`go`, `tv`→`pine`
+  - Pine Script: zeigt Code + TradingView-Hinweis statt Ausführung
+  - TypeScript: Hinweis falls ts-node fehlt, trotzdem Buffer nutzbar
+  - Log-Marker: `[CODING-SKILL]`
+- **`tools/system_test.py`** (erweitert): 21. Subsystem `"coding"`
+  - Smoke-Test: führt `print('zuki-coding-ok')` in Python-Sandbox aus
+  - Prüft alle optionalen Interpreter (node, ts-node, bash, go) — warn wenn fehlend
+  - Status: ok (alle verfügbar), warn (optionale fehlen), fail (Python-Sandbox defekt)
+
+### Geänderte Files
+
+- `workspaces/coding/__init__.py`       — **neu**
+- `workspaces/coding/buffer.py`         — **neu** (CodeBuffer)
+- `workspaces/coding/sandbox.py`        — **neu** (Sandbox-Runner)
+- `workspaces/coding/coding_skill.py`   — **neu** (CodingSkill)
+- `tools/system_test.py`            — `"coding"` (21. Subsystem)
+- `ROADMAP.md`                      — Bundle 9 auf ✅
+
+### Neue Status-APIs
+
+- `CodeBuffer.get_status() → dict`          — active, buffers (lang→chars), file
+- `RunResult.success → bool`                — rc==0 und kein Timeout/Error
+- `RunResult.format_output() → str`         — formatierter Output für Terminal
+- `run_code(lang, code, timeout) → RunResult`
+- `is_available(lang) → tuple[bool, str]`   — Interpreter vorhanden?
+
+### Notizen
+
+- **Kein main.py-Touch nötig**: CodingSkill wird via Auto-Discovery gefunden.
+- **Inline-Editor**: folgt dem Interview-Pattern aus Bundle 12 — kein State-Hack in main.py.
+- **Pine Script**: bewusst kein Runner — `code pine run` zeigt Code + Hinweis "In TradingView einfügen".
+- **TypeScript**: Buffer funktioniert immer; Ausführung erfordert `npm install -g ts-node`.
+- **Sandbox-Sicherheit**: Timeout 10s verhindert Endlos-Loops; Temp-Dateien werden garantiert gelöscht (finally-Block).
+- **Impliziter Add-Modus**: `code python print('hello')` ohne Subbefehl fügt Zeile direkt hinzu.
 
 ---
 
@@ -41,8 +106,8 @@ Alle Änderungen chronologisch dokumentiert. Neueste Einträge oben.
 
 ### Implementiert
 
-- **`skills/business/__init__.py`** (neu): Paket-Marker
-- **`skills/business/analyzer.py`** (neu): `GastroAnalyzer` + `AnalysisResult`
+- **`workspaces/business/__init__.py`** (neu): Paket-Marker
+- **`workspaces/business/analyzer.py`** (neu): `GastroAnalyzer` + `AnalysisResult`
   - `AnalysisResult` Dataclass: name, address, rating, review_count, phone, website,
     categories, hours, competitors, instagram_handle/data, weaknesses_found,
     kpi_snapshot, score (0-100), stub_mode, analyzed_at
@@ -59,7 +124,7 @@ Alle Änderungen chronologisch dokumentiert. Neueste Einträge oben.
   - `_build_recommendations()` — mappt Schwachstellen auf Tool-Empfehlungen aus gastro.yaml
   - `_build_next_steps()` — konkrete nächste Schritte basierend auf erkannten IDs
   - Log-Marker: `[BUSINESS-ANALYSE]`, `[BUSINESS-SCHWACHSTELLE]`
-- **`skills/business/interview.py`** (neu): `WorkflowInterview`
+- **`workspaces/business/interview.py`** (neu): `WorkflowInterview`
   - 10 strukturierte Fragen: Sitzplätze, Reservierung, Kassensystem, Social-Media-
     Verantwortung, Post-Frequenz, Bewertungsantworten, Lieferdienst, Newsletter,
     Herausforderung, Ziel 3 Monate
@@ -71,7 +136,7 @@ Alle Änderungen chronologisch dokumentiert. Neueste Einträge oben.
   - `_derive_insights()` — erkennt Muster: inaktives Social-Media, keine Bewertungsantworten,
     Telefon-only Reservierung, kein Lieferdienst, kein Newsletter, kein Verantwortlicher
   - Log-Marker: `[BUSINESS-INTERVIEW]`
-- **`skills/business/business_skill.py`** (neu): `BusinessSkill(Skill)`
+- **`workspaces/business/business_skill.py`** (neu): `BusinessSkill(Skill)`
   - triggers: `{"business", "analyse", "analysiere"}`
   - `description` gesetzt (Router-sichtbar)
   - Befehle: `business analyse <query>`, `business report`, `business interview [name]`,
@@ -83,10 +148,10 @@ Alle Änderungen chronologisch dokumentiert. Neueste Einträge oben.
 
 ### Geänderte Files
 
-- `skills/business/__init__.py`       — **neu**
-- `skills/business/analyzer.py`       — **neu** (GastroAnalyzer)
-- `skills/business/interview.py`      — **neu** (WorkflowInterview)
-- `skills/business/business_skill.py` — **neu** (BusinessSkill)
+- `workspaces/business/__init__.py`       — **neu**
+- `workspaces/business/analyzer.py`       — **neu** (GastroAnalyzer)
+- `workspaces/business/interview.py`      — **neu** (WorkflowInterview)
+- `workspaces/business/business_skill.py` — **neu** (BusinessSkill)
 
 ### Neue Status-APIs
 
@@ -284,7 +349,7 @@ Alle Änderungen chronologisch dokumentiert. Neueste Einträge oben.
 ### Notizen
 
 - `requests` war bereits installiert — kein neues Dependency-Problem
-- Broker-Skill `skills/broker/scraper.py` bleibt unverändert (Mock-News-Fetcher für Broker-Skill)
+- Broker-Skill `workspaces/broker/scraper.py` bleibt unverändert (Mock-News-Fetcher für Broker-Skill)
 - `tools/scraper.py` ist die wiederverwendbare Infrastruktur für Business-, Office-, Broker-Skills
 - Cache speichert in `temp/scraper_cache/` — wird von cleanup_manager's `temp/`-Bereinigung erfasst
 
@@ -461,9 +526,9 @@ Alle Änderungen chronologisch dokumentiert. Neueste Einträge oben.
   - Skill-Antworten werden per `cloud.save_skill_conversation()` in der Cloud gespeichert
   - Output zeigt `[Router] -> skill1, skill2` wenn Router-Pfad aktiv
   - Fallback auf General-LLM-Chat wenn Router `[]` zurückgibt
-- **`skills/base.py`**: `description: str = ""` — neues Feld für Router-Klassifikation
-- **`skills/professor/professor.py`**: `description` gesetzt
-- **`skills/registry.py`**: `get_all_descriptions() → list[dict]` — Skills mit Beschreibung
+- **`workspaces/base.py`**: `description: str = ""` — neues Feld für Router-Klassifikation
+- **`workspaces/professor/professor.py`**: `description` gesetzt
+- **`workspaces/registry.py`**: `get_all_descriptions() → list[dict]` — Skills mit Beschreibung
   für Router (filtert Skills ohne description heraus)
 - **Cloud-API `zuki_cloud/api/index.py`** zwei neue Endpunkte:
   - `POST /api/skill/conversations` — speichert in `zuki:skill:{name}:conversations:{tenant}`
@@ -488,9 +553,9 @@ Alle Änderungen chronologisch dokumentiert. Neueste Einträge oben.
                              `router_agent=router` im SystemTest
 - `core/ui_renderer.py`    — `print_router_decision()` als abstractmethod
 - `core/ui.py`             — `print_router_decision()` in TerminalRenderer + Forwarding
-- `skills/base.py`         — `description: str = ""` Feld
-- `skills/registry.py`     — `get_all_descriptions() → list[dict]`
-- `skills/professor/professor.py` — `description` gesetzt
+- `workspaces/base.py`         — `description: str = ""` Feld
+- `workspaces/registry.py`     — `get_all_descriptions() → list[dict]`
+- `workspaces/professor/professor.py` — `description` gesetzt
 - `tools/cloud_memory.py`  — `save_skill_conversation()`, `get_skill_conversations()`,
                              `_post_skill()`, `_skill_conversations_url()`
 - `tools/system_test.py`   — `router_agent` Parameter + `_test_router()`
@@ -719,11 +784,11 @@ Alle Änderungen chronologisch dokumentiert. Neueste Einträge oben.
 
 ### Neue / geänderte Files
 
-- `skills/base.py` — neu: `Skill` ABC
-- `skills/registry.py` — neu: Auto-Discovery + `get_skill_for()` + Status-API
-- `skills/professor/professor.py` — `ProfessorSkill` angehängt
-- `skills/test_skill.py` — neu: `PingSkill` (ping → pong)
-- `skills/__init__.py`, `skills/professor/__init__.py`, `skills/broker/__init__.py`, `skills/business/__init__.py` — neu: leere Package-Marker
+- `workspaces/base.py` — neu: `Skill` ABC
+- `workspaces/registry.py` — neu: Auto-Discovery + `get_skill_for()` + Status-API
+- `workspaces/professor/professor.py` — `ProfessorSkill` angehängt
+- `workspaces/test_skill.py` — neu: `PingSkill` (ping → pong)
+- `workspaces/__init__.py`, `workspaces/professor/__init__.py`, `workspaces/broker/__init__.py`, `workspaces/business/__init__.py` — neu: leere Package-Marker
 - `core/ui_renderer.py` — neu: `UIRenderer` ABC
 - `core/ui.py` — refactored: alle Funktionen → `TerminalRenderer`-Methoden; Forwarding-Layer erhalten
 - `core/ui_factory.py` — neu: `get_renderer()` Singleton, `reset_renderer()`
@@ -852,29 +917,29 @@ Neue Klasse `_Outbox` und Integration in `CloudMemory`:
 ## Bundle 3 — Plugin-Architektur
 
 ### Feature 1 — Skill-Plugin-System
-**Dateien:** `skills/base.py` (neu), `skills/registry.py` (neu), `skills/professor/professor.py`, `skills/test_skill.py` (neu), `skills/__init__.py`, mehrere `__init__.py`-Marker, `core/main.py`
+**Dateien:** `workspaces/base.py` (neu), `workspaces/registry.py` (neu), `workspaces/professor/professor.py`, `workspaces/test_skill.py` (neu), `workspaces/__init__.py`, mehrere `__init__.py`-Marker, `core/main.py`
 
-- **`Skill` ABC** (`skills/base.py`):
+- **`Skill` ABC** (`workspaces/base.py`):
   - `name: str` — eindeutiger Skill-Name (Pflicht).
   - `triggers: set[str]` — Befehlswörter die den Skill auslösen.
   - `handle(context: dict) -> str | None` — abstrakt; `None` = Skill hat nichts zu sagen.
   - Context-Dict enthält: `user_input`, `cmd`, `api_mgr`, `llm`, `profile`.
 
-- **`registry.py`** (`skills/registry.py`):
-  - `discover_skills()` — `pkgutil.walk_packages` scannt `skills/`-Paket, importiert alle Module, instantiiert alle `Skill`-Subklassen, registriert nach Trigger (lowercase).
+- **`registry.py`** (`workspaces/registry.py`):
+  - `discover_skills()` — `pkgutil.walk_packages` scannt `workspaces/`-Paket, importiert alle Module, instantiiert alle `Skill`-Subklassen, registriert nach Trigger (lowercase).
   - `get_skill_for(cmd)` — erstes Wort von `cmd` als Lookup-Key.
   - Status-API: `skill_count()`, `list_names()`.
   - Log-Marker: `[SKILL-DISCOVER]`.
 
-- **`ProfessorSkill`** (ans Ende von `skills/professor/professor.py` angehängt):
+- **`ProfessorSkill`** (ans Ende von `workspaces/professor/professor.py` angehängt):
   - `triggers = {"explain", "erklaer", "erklaere", "erkläre"}`.
   - `handle()` — ruft bestehende `build_sim_response()` / `build_live_prompt()` + `api_mgr.chat()` auf.
 
-- **`PingSkill`** (`skills/test_skill.py`):
+- **`PingSkill`** (`workspaces/test_skill.py`):
   - Trigger: `"ping"` → Antwort: `"pong  ·  Skill-System funktioniert."`.
 
 - **Package-Marker** `__init__.py`:
-  - `skills/__init__.py`, `skills/professor/__init__.py`, `skills/broker/__init__.py`, `skills/business/__init__.py` — leer, für `pkgutil.walk_packages`.
+  - `workspaces/__init__.py`, `workspaces/professor/__init__.py`, `workspaces/broker/__init__.py`, `workspaces/business/__init__.py` — leer, für `pkgutil.walk_packages`.
 
 - **`core/main.py`** Integration:
   - `from skills import registry as skill_registry`.

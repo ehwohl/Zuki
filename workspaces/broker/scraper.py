@@ -1,10 +1,10 @@
 """
-scraper.py — Web-Scraper Skill für Zuki Broker-Modul
-─────────────────────────────────────────────────────
-AKTUELL: Mock-Modus — erstellt Beispiel-News in news_inbox/
+scraper.py — Web scraper skill for Zuki broker module
+──────────────────────────────────────────────────────
+CURRENT: Mock mode — creates sample news in news_inbox/
 
 LIVE UPGRADE:
-  Ersetze den Body von fetch_news() mit einem echten Scraper, z.B.:
+  Replace the body of fetch_news() with a real scraper, e.g.:
   ┌─────────────────────────────────────────────────────────┐
   │  # Option A — Newspaper3k                               │
   │  from newspaper import Article                          │
@@ -24,7 +24,7 @@ LIVE UPGRADE:
   │  articles = r.json()["articles"]                        │
   └─────────────────────────────────────────────────────────┘
 
-  Alle Scraper-Ergebnisse → save_article(filename, content)
+  All scraper results → save_article(filename, content)
 """
 
 import os
@@ -35,15 +35,15 @@ from core.logger import get_logger
 log = get_logger("scraper")
 
 _BROKER = os.path.abspath(os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "..", "skills", "broker"
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "workspaces", "broker"
 ))
 
-# Resolve from scraper.py's own location (skills/broker/scraper.py → skills/broker/)
+# Resolve from scraper.py's own location (workspaces/broker/scraper.py → workspaces/broker/)
 INBOX = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "news_inbox"
 )
 
-# ── Mock-Artikel ───────────────────────────────────────────────────────────────
+# ── Mock articles ──────────────────────────────────────────────────────────────
 _MOCK_ARTICLES = [
     {
         "filename": "mock_tech.txt",
@@ -84,9 +84,9 @@ _MOCK_ARTICLES = [
 
 def fetch_mock_news() -> int:
     """
-    Erstellt Beispiel-News-Dateien im news_inbox/ Ordner.
-    Dateinamen erhalten das heutige Datum als Präfix → NewsManager erkennt sie.
-    Gibt Anzahl erstellter Dateien zurück.
+    Creates sample news files in the news_inbox/ folder.
+    Filenames get today's date as prefix → NewsManager recognises them.
+    Returns number of files created.
     """
     os.makedirs(INBOX, exist_ok=True)
     today = date.today().isoformat()
@@ -96,28 +96,28 @@ def fetch_mock_news() -> int:
         fname = f"{today}_{article['filename']}"
         fpath = os.path.join(INBOX, fname)
         if os.path.exists(fpath):
-            log.debug(f"Bereits vorhanden, übersprungen: {fname}")
+            log.debug(f"Already exists, skipped: {fname}")
             continue
         try:
             _save_article(fpath, article["content"])
             created += 1
-            log.info(f"Mock-Artikel erstellt: {fname}")
+            log.info(f"Mock article created: {fname}")
         except OSError as e:
-            log.warning(f"Konnte Artikel nicht schreiben: {fname} — {e}")
+            log.warning(f"Could not write article: {fname} — {e}")
 
-    log.info(f"fetch_mock_news: {created} neue Artikel erstellt")
+    log.info(f"fetch_mock_news: {created} new articles created")
     return created
 
 
 def fetch_news() -> int:
     """
-    Einstiegspunkt für echten Scraper (LIVE UPGRADE).
-    Aktuell: Delegiert an fetch_mock_news().
+    Entry point for real scraper (LIVE UPGRADE).
+    Currently: delegates to fetch_mock_news().
 
     ── LIVE UPGRADE ──────────────────────────────────────────
-    Ersetze diesen Funktions-Body mit echten API-Calls.
-    Nutze NEWSAPI_KEY, SERPAPI_API_KEY aus .env.
-    Alle Ergebnisse → _save_article(fpath, content)
+    Replace this function body with real API calls.
+    Use NEWSAPI_KEY, SERPAPI_API_KEY from .env.
+    All results → _save_article(fpath, content)
     ──────────────────────────────────────────────────────────
     """
     return fetch_mock_news()
@@ -126,7 +126,7 @@ def fetch_news() -> int:
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _save_article(fpath: str, content: str) -> None:
-    """Schreibt einen Artikel als .txt in news_inbox/."""
+    """Writes an article as .txt into news_inbox/."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     with open(fpath, "w", encoding="utf-8") as f:
         f.write(f"[Erstellt: {timestamp}]\n\n{content}\n")

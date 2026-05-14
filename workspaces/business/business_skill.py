@@ -1,29 +1,29 @@
 """
-business_skill.py — BusinessSkill für Zuki
-────────────────────────────────────────────
-Trigger : business, analyse, analysiere
+business_skill.py — BusinessSkill for Zuki
+───────────────────────────────────────────
+Triggers : business, analyse, analysiere
 
-Befehle:
-  business                        → Hilfe-Übersicht
-  business analyse <Name/Adresse> → Digitale Schwachstellen-Analyse + PDF
-  business interview [Name]       → Workflow-Audit-Fragebogen (interaktiv)
-  business interview [Name] report → Interview + PDF-Report
-  business status                 → Letzte Analyse anzeigen
-  business report                 → PDF aus letzter Analyse generieren
+Commands:
+  business                        → help overview
+  business analyse <Name/Address> → digital weakness analysis + PDF
+  business interview [Name]       → workflow audit questionnaire (interactive)
+  business interview [Name] report → interview + PDF report
+  business status                 → show last analysis
+  business report                 → generate PDF from last analysis
 
-Architektur:
-  GastroAnalyzer    → holt Daten + erkennt Schwachstellen
-  WorkflowInterview → führt Fragebogen inline durch (analog Vision-Handler)
-  build_analyse_report() / build_workflow_report() → PDF-Ausgabe
+Architecture:
+  GastroAnalyzer    → fetches data + detects weaknesses
+  WorkflowInterview → runs questionnaire inline (analogous to vision handler)
+  build_analyse_report() / build_workflow_report() → PDF output
 
-Log-Marker: [BUSINESS-SKILL]
+Log marker: [BUSINESS-SKILL]
 """
 
 import os
 from pathlib import Path
 
 from core.logger import get_logger
-from skills.base import Skill
+from workspaces.base import Skill
 
 log = get_logger("business.skill")
 
@@ -35,9 +35,9 @@ class BusinessSkill(Skill):
     name        = "business"
     triggers    = {"business", "analyse", "analysiere"}
     description = (
-        "Digitale Schwachstellen-Analyse für Gastro-Betriebe: "
-        "Google Business Profile, Social Media, Bewertungen, Konkurrenz. "
-        "Erstellt PDF-Report und führt Workflow-Interview durch."
+        "Digital weakness analysis for gastro businesses: "
+        "Google Business Profile, social media, reviews, competition. "
+        "Creates PDF report and runs workflow interview."
     )
 
     def __init__(self) -> None:
@@ -50,18 +50,18 @@ class BusinessSkill(Skill):
         cmd        = context.get("cmd", "").strip()
         user_input = context.get("user_input", "").strip()
 
-        # Normalisieren: "analysiere X" → "business analyse X"
+        # Normalise: "analysiere X" → "business analyse X"
         if cmd.startswith("analysiere ") or cmd.startswith("analyse "):
             rest = cmd.split(" ", 1)[1].strip()
             cmd  = f"business analyse {rest}"
 
         parts = cmd.split()   # ["business", "analyse", ...]
 
-        # ── Hilfe ─────────────────────────────────────────────────────────────
+        # ── Help ──────────────────────────────────────────────────────────────
         if len(parts) == 1 and parts[0] == "business":
             return self._help()
 
-        # ── Analyse ───────────────────────────────────────────────────────────
+        # ── Analysis ──────────────────────────────────────────────────────────
         if len(parts) >= 3 and parts[1] == "analyse":
             query = " ".join(parts[2:])
             return self._run_analyse(query, context)
@@ -70,7 +70,7 @@ class BusinessSkill(Skill):
         if len(parts) == 2 and parts[1] == "status":
             return self._show_status()
 
-        # ── Report aus letzter Analyse ────────────────────────────────────────
+        # ── Report from last analysis ─────────────────────────────────────────
         if len(parts) == 2 and parts[1] == "report":
             return self._generate_report()
 
@@ -81,10 +81,10 @@ class BusinessSkill(Skill):
 
         return self._help()
 
-    # ── Analyse ───────────────────────────────────────────────────────────────
+    # ── Analysis ──────────────────────────────────────────────────────────────
 
     def _run_analyse(self, query: str, context: dict) -> str:
-        from skills.business.analyzer import GastroAnalyzer
+        from workspaces.business.analyzer import GastroAnalyzer
 
         ui = self._get_ui()
         ui.system_msg(f"[Business] Analysiere: {query} ...")
@@ -93,12 +93,11 @@ class BusinessSkill(Skill):
         try:
             result = analyzer.run(query)
         except Exception as e:
-            log.error(f"[BUSINESS-SKILL] Analyse-Fehler: {e}")
+            log.error(f"[BUSINESS-SKILL] Analysis error: {e}")
             return f"Analyse fehlgeschlagen: {e}\nDetails in logs/error.log"
 
         self._last_analysis = result
 
-        # Zusammenfassung
         stub_hint = "  ⚠️  Stub-Daten (kein SerpAPI-Key)" if result.stub_mode else ""
         lines = [
             f"Analyse: {result.name}  |  Score: {result.score}/100{stub_hint}",
@@ -121,10 +120,10 @@ class BusinessSkill(Skill):
             "\n'business interview <Name>'  → Workflow-Audit starten"
         )
 
-        log.info(f"[BUSINESS-SKILL] Analyse abgeschlossen: {result.name}  score={result.score}")
+        log.info(f"[BUSINESS-SKILL] Analysis complete: {result.name}  score={result.score}")
         return "\n".join(lines)
 
-    # ── PDF-Report aus letzter Analyse ────────────────────────────────────────
+    # ── PDF report from last analysis ─────────────────────────────────────────
 
     def _generate_report(self) -> str:
         if self._last_analysis is None:
@@ -134,7 +133,7 @@ class BusinessSkill(Skill):
             )
 
         from tools.report import build_analyse_report
-        from skills.business.analyzer import GastroAnalyzer
+        from workspaces.business.analyzer import GastroAnalyzer
 
         _REPORT_DIR.mkdir(parents=True, exist_ok=True)
         filename = _safe_filename(self._last_analysis.name or "report") + ".pdf"
@@ -145,16 +144,16 @@ class BusinessSkill(Skill):
             report_data = analyzer.to_report_data(self._last_analysis)
             path        = build_analyse_report(output_path=output, **report_data)
             self._last_report_path = path
-            log.info(f"[BUSINESS-SKILL] Report gespeichert: {path}")
+            log.info(f"[BUSINESS-SKILL] Report saved: {path}")
             return f"PDF-Report erstellt:\n  {path}"
         except Exception as e:
-            log.error(f"[BUSINESS-SKILL] Report-Fehler: {e}")
+            log.error(f"[BUSINESS-SKILL] Report error: {e}")
             return f"Report-Erstellung fehlgeschlagen: {e}"
 
-    # ── Interview (läuft inline) ──────────────────────────────────────────────
+    # ── Interview (runs inline) ───────────────────────────────────────────────
 
     def _run_interview(self, name: str, context: dict) -> str:
-        from skills.business.interview import WorkflowInterview
+        from workspaces.business.interview import WorkflowInterview
         from tools.report import build_workflow_report
 
         ui = self._get_ui()
@@ -170,13 +169,13 @@ class BusinessSkill(Skill):
             f"10 Fragen zum Betriebsablauf  ·  'zurück' = vorherige Frage  ·  'abbrechen' = beenden"
         )
 
-        # Interaktiver Fragebogen-Loop
+        # Interactive questionnaire loop
         while not interview.is_done():
             ui.speak_zuki(interview.format_question())
             answer = ui.user_prompt().strip()
 
             if answer.lower() in _CANCEL_CMDS:
-                log.info("[BUSINESS-SKILL] Interview abgebrochen")
+                log.info("[BUSINESS-SKILL] Interview cancelled")
                 return "Interview abgebrochen."
 
             if answer.lower() in _BACK_CMDS:
@@ -188,7 +187,7 @@ class BusinessSkill(Skill):
 
             interview.answer(answer)
 
-        # Interview abgeschlossen — immer PDF generieren
+        # Interview complete — always generate PDF
         summary  = interview.get_summary()
         insights = summary.get("insights", [])
 
@@ -211,12 +210,12 @@ class BusinessSkill(Skill):
             )
             self._last_report_path = path
             lines.append(f"\nWorkflow-Report gespeichert:\n  {path}")
-            log.info(f"[BUSINESS-SKILL] Workflow-Report: {path}")
+            log.info(f"[BUSINESS-SKILL] Workflow report: {path}")
         except Exception as e:
-            log.warning(f"[BUSINESS-SKILL] Workflow-Report Fehler: {e}")
+            log.warning(f"[BUSINESS-SKILL] Workflow report error: {e}")
             lines.append(f"\nReport-Erstellung fehlgeschlagen: {e}")
 
-        log.info(f"[BUSINESS-SKILL] Interview fertig: {display_name}")
+        log.info(f"[BUSINESS-SKILL] Interview done: {display_name}")
         return "\n".join(lines)
 
     # ── Status ────────────────────────────────────────────────────────────────
@@ -238,7 +237,7 @@ class BusinessSkill(Skill):
             lines.append(f"Letzter Report: {self._last_report_path}")
         return "\n".join(lines)
 
-    # ── Hilfe ─────────────────────────────────────────────────────────────────
+    # ── Help ──────────────────────────────────────────────────────────────────
 
     def _help(self) -> str:
         return (
@@ -266,6 +265,6 @@ class BusinessSkill(Skill):
 
 
 def _safe_filename(name: str) -> str:
-    """Konvertiert einen Namen in einen datei-sicheren String."""
+    """Converts a name into a filesystem-safe string."""
     safe = "".join(c if c.isalnum() or c in " _-" else "_" for c in name)
     return safe.strip().replace(" ", "_")[:60] or "report"

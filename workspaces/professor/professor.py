@@ -1,29 +1,29 @@
 """
-professor.py — Der Professor-Skill für Zuki
+professor.py — The Professor skill for Zuki
 ────────────────────────────────────────────
-Trigger : explain [Thema]  (Groß-/Kleinschreibung egal)
+Trigger : explain [topic]  (case-insensitive)
 
-Ablauf:
-  SIM  → strukturierte Platzhalter-Antwort, level-abhängig
-  LIVE → LLM-gestützte Erklärung mit Wikipedia-/Fachquellen-Prompt
+Flow:
+  SIM  → structured placeholder response, level-dependent
+  LIVE → LLM-powered explanation with Wikipedia/source prompt
 
-Level-Adaptierung (aus user_profile):
-  ""          → neutral, mittleres Niveau
-  "Anfänger"  → einfache Sprache, Analogien, keine Fachbegriffe
-  "Fortgeschrittener" → solide Erklärung + erste Fachbegriffe
-  "Profi" / "Experte" → Fachterminologie, kein Spoon-Feeding
+Level adaptation (from user_profile):
+  ""          → neutral, medium level
+  "Anfänger"  → simple language, analogies, no jargon
+  "Fortgeschrittener" → solid explanation + first technical terms
+  "Profi" / "Experte" → full terminology, no spoon-feeding
 
 LIVE UPGRADE:
-  build_live_prompt() erzeugt bereits einen strukturierten Prompt.
-  Optional: Wikipedia-API-Call vor dem LLM-Call für Faktenbasis:
+  build_live_prompt() already generates a structured prompt.
+  Optionally query Wikipedia before the LLM call for a factual basis:
     import wikipedia; wikipedia.set_lang("de")
     summary = wikipedia.summary(topic, sentences=5)
-    → In den Prompt einbetten als "Kontext: {summary}"
+    → embed as "Kontext: {summary}" in the prompt
 """
 
 import re
 from core.logger import get_logger
-from skills.base import Skill
+from workspaces.base import Skill
 
 log = get_logger("professor")
 
@@ -37,12 +37,12 @@ def is_explain_trigger(text: str) -> bool:
 
 
 def get_topic(text: str) -> str:
-    """Extrahiert das Thema aus 'explain [Thema]'. Gibt '' zurück wenn kein Match."""
+    """Extracts the topic from 'explain [topic]'. Returns '' if no match."""
     m = _EXPLAIN_RE.match(text.strip())
     return m.group(1).strip() if m else ""
 
 
-# ── Level-Mapping ──────────────────────────────────────────────────────────────
+# ── Level mapping ──────────────────────────────────────────────────────────────
 
 _LEVEL_BEGINNER    = {"anfänger", "neuling", "beginner", "einsteiger", "keine ahnung"}
 _LEVEL_ADVANCED    = {"fortgeschrittener", "fortgeschritten", "intermediate"}
@@ -51,7 +51,7 @@ _LEVEL_EXPERT      = {"profi", "experte", "expert", "fachmann", "erfahren", "spe
 
 def normalize_level(raw: str) -> str:
     """
-    Normalisiert den gespeicherten Level-String in eine Stufe:
+    Normalises the stored level string to a tier:
       "beginner" | "advanced" | "expert" | "unknown"
     """
     r = raw.strip().lower()
@@ -64,7 +64,7 @@ def normalize_level(raw: str) -> str:
     return "unknown"
 
 
-# ── SIM-Antwort ────────────────────────────────────────────────────────────────
+# ── SIM response ───────────────────────────────────────────────────────────────
 
 _SIM_LEVEL_NOTE = {
     "beginner": (
@@ -129,7 +129,7 @@ def build_sim_response(topic: str, level_raw: str) -> str:
     )
 
 
-# ── LIVE-Prompt ────────────────────────────────────────────────────────────────
+# ── LIVE prompt ────────────────────────────────────────────────────────────────
 
 _LIVE_LEVEL_INSTRUCTION = {
     "beginner": (
@@ -154,13 +154,13 @@ _LIVE_LEVEL_INSTRUCTION = {
 
 def build_live_prompt(topic: str, level_raw: str, profile_summary: str = "") -> str:  # noqa: E302
     """
-    Erstellt einen strukturierten LLM-Prompt für eine echte Vorlesung.
+    Builds a structured LLM prompt for a live explanation.
 
     LIVE UPGRADE:
-      Vor diesem Prompt-Call optional Wikipedia abfragen:
+      Optionally query Wikipedia before this prompt call:
         import wikipedia; wikipedia.set_lang("de")
         context = wikipedia.summary(topic, sentences=5)
-      → als 'Kontext: {context}' in den Prompt einbetten
+      → embed as 'Kontext: {context}' in the prompt
     """
     level       = normalize_level(level_raw)
     instruction = _LIVE_LEVEL_INSTRUCTION[level]
@@ -181,15 +181,15 @@ def build_live_prompt(topic: str, level_raw: str, profile_summary: str = "") -> 
     )
 
 
-# ── Skill-Klasse ──────────────────────────────────────────────────────────────
+# ── Skill class ────────────────────────────────────────────────────────────────
 
 class ProfessorSkill(Skill):
-    """Der Professor — erklärt Themen level-adaptiert via 'explain [Thema]'."""
+    """The Professor — explains topics level-adaptively via 'explain [topic]'."""
 
     name         = "professor"
     triggers     = {"explain", "erklaer", "erklaere", "erkläre"}
-    tenant_aware = False   # Erklärt allgemeines Wissen, keine Kundendaten
-    description = "Erklärt Themen, Konzepte und Begriffe strukturiert und level-adaptiert"
+    tenant_aware = False   # explains general knowledge, no customer data
+    description = "Explains topics, concepts and terms in a structured, level-adaptive way"
 
     def handle(self, context: dict) -> str | None:
         user_input = context.get("user_input", "")

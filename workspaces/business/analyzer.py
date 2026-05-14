@@ -1,19 +1,19 @@
 """
-analyzer.py — Gastro-Analyse-Engine
-─────────────────────────────────────
-Sammelt Daten (Google Business, Instagram, Konkurrenz),
-erkennt Schwachstellen aus knowledge/gastro.yaml und
-bereitet alles für den PDF-Report vor.
+analyzer.py — Gastro analysis engine
+──────────────────────────────────────
+Collects data (Google Business, Instagram, competition),
+detects weaknesses from knowledge/gastro.yaml and
+prepares everything for the PDF report.
 
-Klassen:
-  AnalysisResult  — Dataclass mit allen Analyse-Ergebnissen
-  GastroAnalyzer  — Führt die Analyse durch
+Classes:
+  AnalysisResult  — Dataclass with all analysis results
+  GastroAnalyzer  — Runs the analysis
 
-Status-API:
+Status API:
   GastroAnalyzer.last_result() → AnalysisResult | None
-  GastroAnalyzer.to_report_data(result) → dict für build_analyse_report()
+  GastroAnalyzer.to_report_data(result) → dict for build_analyse_report()
 
-Log-Marker: [BUSINESS-ANALYSE], [BUSINESS-SCHWACHSTELLE]
+Log markers: [BUSINESS-ANALYSE], [BUSINESS-SCHWACHSTELLE]
 """
 
 from dataclasses import dataclass, field
@@ -28,7 +28,7 @@ _ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# AnalysisResult — Ergebnis einer Analyse
+# AnalysisResult — result of one analysis run
 # ══════════════════════════════════════════════════════════════════════════════
 
 @dataclass
@@ -45,9 +45,20 @@ class AnalysisResult:
     competitors:       list              = field(default_factory=list)   # list[dict]
     instagram_handle:  str               = ""
     instagram_data:    dict              = field(default_factory=dict)
-    weaknesses_found:  list              = field(default_factory=list)   # list[dict] aus gastro.yaml
-    kpi_snapshot:      list              = field(default_factory=list)   # list[(label, ist, ziel)]
-    score:             int               = 0   # 0-100, höher = besser
+    # ── Extended SerpAPI fields ──────────────────────────────────────────────
+    photos_count:      int               = -1   # -1 = unknown
+    menu_link:         str               = ""
+    booking_link:      str               = ""
+    service_options:   dict              = field(default_factory=dict)  # delivery/takeout/dine_in
+    price_range:       str               = ""
+    description:       str               = ""
+    owner_updates:     int               = -1   # -1 = unknown, 0+ = number of posts
+    competitors_count: int               = 0
+    pagespeed_score:   int               = -1   # -1 = not checked
+    # ────────────────────────────────────────────────────────────────────────
+    weaknesses_found:  list              = field(default_factory=list)   # list[dict] from gastro.yaml
+    kpi_snapshot:      list              = field(default_factory=list)   # list[(label, actual, target)]
+    score:             int               = 0   # 0-100, higher = better
     stub_mode:         bool              = True
     analyzed_at:       str               = ""
 
@@ -62,20 +73,20 @@ class AnalysisResult:
 
 class GastroAnalyzer:
     """
-    Führt eine digitale Schwachstellen-Analyse für ein Gastro-Betrieb durch.
+    Runs a digital weakness analysis for a gastro business.
 
     run(query) → AnalysisResult
-      1. Google Business Profile laden (via GoogleBusinessAdapter)
-      2. Konkurrenz im Umkreis laden (Stub: 3 Einträge)
-      3. Instagram-Daten laden falls Handle erkennbar
-      4. Schwachstellen aus knowledge/gastro.yaml gegen Daten prüfen
-      5. Score berechnen (0-100)
+      1. Load Google Business Profile (via GoogleBusinessAdapter)
+      2. Load nearby competition (stub: 3 entries)
+      3. Load Instagram data if handle is detectable
+      4. Check weaknesses from knowledge/gastro.yaml against data
+      5. Calculate score (0-100)
     """
 
     def __init__(self) -> None:
         self._last: AnalysisResult | None = None
 
-    # ── Öffentliche API ───────────────────────────────────────────────────────
+    # ── Public API ────────────────────────────────────────────────────────────
 
     def run(self, query: str) -> AnalysisResult:
         log.info(f"[BUSINESS-ANALYSE] Start: '{query}'")
@@ -85,19 +96,24 @@ class GastroAnalyzer:
         place = self._fetch_place(query)
         self._apply_place(result, place)
 
-        # 2. Konkurrenz im Umkreis
-        result.competitors = self._fetch_competitors(query, place)
+        # 2. Nearby competition
+        result.competitors       = self._fetch_competitors(query, place)
+        result.competitors_count = len(result.competitors)
 
-        # 3. Instagram (falls Handle in Website oder Name erkennbar)
+        # 2b. PageSpeed (only if website present, runs in background)
+        if result.website:
+            result.pagespeed_score = self._fetch_pagespeed(result.website)
+
+        # 3. Instagram (if handle detectable from website or name)
         handle = self._guess_instagram_handle(result)
         if handle:
             result.instagram_handle = handle
             result.instagram_data   = self._fetch_instagram(handle)
 
-        # 4. Schwachstellen erkennen
+        # 4. Detect weaknesses
         result.weaknesses_found = self._detect_weaknesses(result)
 
-        # 5. KPI-Snapshot
+        # 5. KPI snapshot
         result.kpi_snapshot = self._build_kpi_snapshot(result)
 
         # 6. Score
@@ -105,8 +121,8 @@ class GastroAnalyzer:
 
         self._last = result
         log.info(
-            f"[BUSINESS-ANALYSE] Fertig: {result.name}  "
-            f"Score={result.score}  Schwachstellen={len(result.weaknesses_found)}  "
+            f"[BUSINESS-ANALYSE] Done: {result.name}  "
+            f"Score={result.score}  Weaknesses={len(result.weaknesses_found)}  "
             f"stub={result.stub_mode}"
         )
         return result
@@ -116,7 +132,7 @@ class GastroAnalyzer:
 
     def to_report_data(self, result: AnalysisResult) -> dict:
         """
-        Bereitet AnalysisResult als kwargs-dict für build_analyse_report() auf.
+        Prepares AnalysisResult as kwargs dict for build_analyse_report().
         """
         findings = [
             f"{w['title']} — {w['description'][:120].rstrip()}..."
@@ -148,7 +164,7 @@ class GastroAnalyzer:
             notes          = stub_note,
         )
 
-    # ── Daten-Fetch ───────────────────────────────────────────────────────────
+    # ── Data fetch ────────────────────────────────────────────────────────────
 
     def _fetch_place(self, query: str) -> dict:
         try:
@@ -157,19 +173,19 @@ class GastroAnalyzer:
             place   = adapter.search_place(query) or {}
             return place
         except Exception as e:
-            log.warning(f"[BUSINESS-ANALYSE] Google-Fetch Fehler: {e}")
+            log.warning(f"[BUSINESS-ANALYSE] Google fetch error: {e}")
             return {}
 
     def _fetch_competitors(self, query: str, place: dict) -> list:
         try:
             from tools.scraper import get_google_business_adapter
             adapter = get_google_business_adapter()
-            # Koordinaten aus place falls vorhanden (Live: lat/lng)
+            # Coordinates from place if available (live: lat/lng)
             lat = place.get("gps_coordinates", {}).get("latitude", 52.5200)
             lng = place.get("gps_coordinates", {}).get("longitude", 13.4050)
             return adapter.search_radius("Restaurant", lat, lng)
         except Exception as e:
-            log.warning(f"[BUSINESS-ANALYSE] Konkurrenz-Fetch Fehler: {e}")
+            log.warning(f"[BUSINESS-ANALYSE] Competition fetch error: {e}")
             return []
 
     def _fetch_instagram(self, handle: str) -> dict:
@@ -178,42 +194,83 @@ class GastroAnalyzer:
             adapter = get_instagram_adapter()
             return adapter.get_profile(handle) or {}
         except Exception as e:
-            log.warning(f"[BUSINESS-ANALYSE] Instagram-Fetch Fehler: {e}")
+            log.warning(f"[BUSINESS-ANALYSE] Instagram fetch error: {e}")
             return {}
 
-    # ── Daten-Mapping ─────────────────────────────────────────────────────────
+    def _fetch_pagespeed(self, url: str) -> int:
+        """
+        Fetches Google PageSpeed Insights mobile score (0-100).
+        Free, no API key required. Returns -1 on error.
+        """
+        try:
+            import urllib.request
+            import json as _json
+            api = (
+                "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
+                f"?url={urllib.request.quote(url, safe='')}&strategy=mobile&category=performance"
+            )
+            with urllib.request.urlopen(api, timeout=12) as resp:
+                data = _json.loads(resp.read())
+            score = (
+                data.get("lighthouseResult", {})
+                    .get("categories", {})
+                    .get("performance", {})
+                    .get("score")
+            )
+            if score is not None:
+                result = int(score * 100)
+                log.info(f"[BUSINESS-ANALYSE] PageSpeed mobile: {result}/100")
+                return result
+        except Exception as e:
+            log.debug(f"[BUSINESS-ANALYSE] PageSpeed not available: {e}")
+        return -1
+
+    # ── Data mapping ──────────────────────────────────────────────────────────
 
     def _apply_place(self, result: AnalysisResult, place: dict) -> None:
-        result.name         = place.get("name", result.query)
+        # SerpAPI delivers "title", stub data uses "name" — handle both
+        result.name         = place.get("title") or place.get("name") or result.query
         result.address      = place.get("address", "")
         result.rating       = float(place.get("rating", 0.0) or 0.0)
         result.review_count = int(place.get("reviews", 0) or 0)
         result.phone        = place.get("phone", "")
         result.website      = place.get("website", "")
-        result.categories   = place.get("categories", [])
+        result.categories   = place.get("type", place.get("categories", []))
         result.hours        = place.get("hours", {})
-        result.stub_mode    = bool(place.get("_stub", True))
+        result.description  = place.get("description", "") or ""
+        result.price_range  = place.get("price_range", "") or ""
+        result.menu_link    = place.get("menu_link", "") or ""
+        result.booking_link = place.get("booking_link", "") or place.get("reservation_link", "") or ""
+        result.service_options = place.get("service_options", {}) or {}
+        # Photos: SerpAPI delivers either a list or a count
+        imgs = place.get("images") or place.get("photos") or []
+        result.photos_count = len(imgs) if isinstance(imgs, list) else int(imgs or -1)
+        # Owner posts
+        updates = place.get("owner_updates") or place.get("posts") or []
+        result.owner_updates = len(updates) if isinstance(updates, list) else int(updates or -1)
+        # stub_mode only True when _stub explicitly set (stub fallback)
+        result.stub_mode    = place.get("_stub") is True
 
     def _guess_instagram_handle(self, result: AnalysisResult) -> str:
-        # Aus Website-URL ableiten falls instagram.com drin
+        # Derive from website URL if instagram.com is in it
         site = result.website.lower()
         if "instagram.com/" in site:
             parts = site.split("instagram.com/")
             if len(parts) > 1:
                 return parts[1].strip("/").split("/")[0]
-        # Einfache Heuristik: Name ohne Sonderzeichen als Handle-Kandidat
+        # Simple heuristic: name without special chars as handle candidate
         name_slug = "".join(
             c for c in result.name.lower().replace(" ", "_")
             if c.isalnum() or c == "_"
         )
         return name_slug if len(name_slug) >= 3 else ""
 
-    # ── Schwachstellen-Erkennung ──────────────────────────────────────────────
+    # ── Weakness detection ────────────────────────────────────────────────────
 
     def _detect_weaknesses(self, result: AnalysisResult) -> list:
         """
-        Prüft erkannte Schwachstellen aus knowledge/gastro.yaml
-        gegen die vorliegenden Daten. Gibt liste der gefundenen zurück.
+        Checks detected weaknesses from knowledge/gastro.yaml
+        against the available data. Returns list of found weaknesses.
         """
         from knowledge.loader import get_knowledge_base
         kb = get_knowledge_base()
@@ -224,23 +281,21 @@ class GastroAnalyzer:
             wid = w.get("id", "")
             if self._check_weakness(wid, result):
                 found.append(w)
-                log.info(f"[BUSINESS-SCHWACHSTELLE] {wid} erkannt ({w.get('severity','?')})")
+                log.info(f"[BUSINESS-SCHWACHSTELLE] {wid} detected ({w.get('severity','?')})")
 
-        # Sortierung: hoch → mittel → niedrig
+        # Sort: high → medium → low
         severity_order = {"hoch": 0, "mittel": 1, "niedrig": 2}
         found.sort(key=lambda w: severity_order.get(w.get("severity", "niedrig"), 2))
         return found
 
     def _check_weakness(self, weakness_id: str, r: AnalysisResult) -> bool:
-        """Gibt True zurück wenn die Schwachstelle aus den Daten erkennbar ist."""
+        """Returns True if the weakness is detectable from the data."""
 
         if weakness_id == "keine_bewertungsantworten":
-            # Keine Response-Rate in Stub — prüfen ob Website fehlt als Proxy
-            # In Live-Daten: response_rate aus SerpAPI
             response_rate = r.instagram_data.get("response_rate_pct", None)
             if response_rate is not None:
                 return response_rate < 80
-            # Heuristik: wenn wenig Reviews → Antwortrate unbekannt → Warnung
+            # Heuristic: few reviews → response rate unknown → warn
             return r.review_count < 50
 
         if weakness_id == "niedrige_bewertungsanzahl":
@@ -250,23 +305,24 @@ class GastroAnalyzer:
             return 0 < r.rating < 4.0
 
         if weakness_id == "keine_online_reservierung":
-            # Proxy: kein Website-Link im Profil
-            return not r.website
+            return not r.booking_link
 
         if weakness_id == "veraltete_speisekarte":
-            # Proxy: keine Website
-            return not r.website
+            return not r.menu_link
 
         if weakness_id == "fehlendes_google_profil":
-            # Schwachstelle wenn Profil unvollständig (fehlende Pflichtfelder)
+            # Weakness if 3 or more fields missing
             missing = sum([
                 not r.phone,
                 not r.website,
                 not r.address,
                 not r.hours,
                 r.review_count == 0,
+                r.photos_count == 0,
+                not r.description,
+                not r.price_range,
             ])
-            return missing >= 2
+            return missing >= 3
 
         if weakness_id == "inaktive_social_media":
             ig = r.instagram_data
@@ -274,27 +330,28 @@ class GastroAnalyzer:
                 posts_per_week = ig.get("posts_per_week", None)
                 if posts_per_week is not None:
                     return posts_per_week < 1
-            # Kein Instagram-Handle erkannt → keine Social-Präsenz
+            # No Instagram handle detected → no social presence
             return not r.instagram_handle
 
         if weakness_id == "kein_lieferdienst":
-            # Kann ohne Lieferando-API nicht zuverlässig erkannt werden
-            # → nur in Stub-Modus bewusst auslassen um False-Positives zu vermeiden
-            return False
+            svc = r.service_options
+            if svc:
+                return not svc.get("delivery", False)
+            return False  # unknown → no false positive
 
         if weakness_id == "keine_seo_website":
             return not r.website
 
         if weakness_id == "kein_newsletter":
-            # Nicht automatisch erkennbar — immer als Hinweis
+            # Not automatically detectable — always flag as hint
             return True
 
         return False
 
-    # ── KPI-Snapshot ──────────────────────────────────────────────────────────
+    # ── KPI snapshot ──────────────────────────────────────────────────────────
 
     def _build_kpi_snapshot(self, result: AnalysisResult) -> list:
-        """Gibt list[(label, ist_wert, ziel_wert)] zurück."""
+        """Returns list[(label, actual_value, target_value)]."""
         from knowledge.loader import get_knowledge_base
         kb   = get_knowledge_base()
         kpis = kb.get_kpis("gastro")
@@ -322,14 +379,40 @@ class GastroAnalyzer:
             ppw = r.instagram_data.get("posts_per_week")
             return f"{ppw:.1f}/Woche" if ppw is not None else "nicht erfasst"
         if kpi_id == "profil_vollstaendigkeit":
-            filled = sum([
+            fields = [
                 bool(r.phone), bool(r.website), bool(r.address),
                 bool(r.hours), bool(r.categories), r.review_count > 0,
-            ])
-            pct = int(filled / 6 * 100)
+                r.photos_count > 0, bool(r.description), bool(r.price_range),
+            ]
+            pct = int(sum(fields) / len(fields) * 100)
             return f"{pct}%"
         if kpi_id == "website_mobile":
+            if r.pagespeed_score >= 0:
+                return f"{r.pagespeed_score}/100"
             return "nicht geprüft" if r.website else "keine Website"
+        if kpi_id == "fotos_anzahl":
+            return str(r.photos_count) if r.photos_count >= 0 else "unbekannt"
+        if kpi_id == "menu_vorhanden":
+            return "ja" if r.menu_link else "nein"
+        if kpi_id == "buchung_vorhanden":
+            return "ja" if r.booking_link else "nein"
+        if kpi_id == "lieferung_aktiviert":
+            svc = r.service_options
+            if not svc:
+                return "unbekannt"
+            parts = []
+            if svc.get("delivery"):   parts.append("Lieferung")
+            if svc.get("takeout"):    parts.append("Abholung")
+            if svc.get("dine_in"):    parts.append("Vor Ort")
+            return ", ".join(parts) if parts else "nein"
+        if kpi_id == "preis_erfasst":
+            return r.price_range if r.price_range else "nicht gesetzt"
+        if kpi_id == "google_posts_aktiv":
+            if r.owner_updates >= 0:
+                return f"{r.owner_updates} Posts" if r.owner_updates else "keine"
+            return "unbekannt"
+        if kpi_id == "konkurrenz_dichte":
+            return f"{r.competitors_count} im Umkreis"
         if kpi_id == "lieferdienst_rating":
             return "nicht erfasst"
         if kpi_id == "tripadvisor_rang":
@@ -340,8 +423,8 @@ class GastroAnalyzer:
 
     def _calc_score(self, result: AnalysisResult) -> int:
         """
-        Einfacher Score 0-100 basierend auf erkannten Problemen.
-        Start bei 100, Abzüge pro Schwachstelle nach Severity.
+        Simple score 0-100 based on detected problems.
+        Starts at 100, deducts per weakness severity.
         """
         score = 100
         deductions = {"hoch": 20, "mittel": 10, "niedrig": 5}
@@ -349,15 +432,15 @@ class GastroAnalyzer:
             score -= deductions.get(w.get("severity", "niedrig"), 5)
         return max(0, min(100, score))
 
-    # ── Empfehlungen + Next Steps ─────────────────────────────────────────────
+    # ── Recommendations + next steps ──────────────────────────────────────────
 
     def _build_recommendations(self, result: AnalysisResult) -> list:
-        """Gibt list[(Maßnahme, Priorität, Kosten)] zurück."""
+        """Returns list[(measure, priority, cost)]."""
         from knowledge.loader import get_knowledge_base
         kb    = get_knowledge_base()
         tools = kb.get_tools("gastro")
 
-        # Mappe Schwachstellen auf Tool-Empfehlungen
+        # Map weaknesses to tool recommendations
         tool_map = {
             "keine_bewertungsantworten":  "Google Business Profile",
             "niedrige_bewertungsanzahl":  "Google Business Profile",
@@ -381,7 +464,7 @@ class GastroAnalyzer:
                 prio = "Hoch" if w.get("severity") == "hoch" else "Mittel"
                 recs.append((f"{w['title']} → {tool_name}", prio, cost))
 
-        return recs[:8]  # max 8 Zeilen im Report
+        return recs[:8]  # max 8 rows in report
 
     def _build_next_steps(self, result: AnalysisResult) -> list:
         steps = []
@@ -400,7 +483,7 @@ class GastroAnalyzer:
             steps.append("Mailchimp-Newsletter aufsetzen für Stammgäste-Bindung (Aktionen, Events)")
         if not steps:
             steps.append("Regelmäßige Pflege aller Online-Profile beibehalten")
-            steps.append("Bewerungsschnitt über 4.5 Sterne anstreben durch aktive Gäste-Einladung")
+            steps.append("Bewertungsschnitt über 4.5 Sterne anstreben durch aktive Gäste-Einladung")
 
         steps.append("Praxistest: Analyse nach 90 Tagen wiederholen um Fortschritt zu messen")
         return steps
