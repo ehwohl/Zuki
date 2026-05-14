@@ -186,6 +186,64 @@ RAM target: Zuki + full UI under 300 MB (lazy-loading, web architecture).
 
 ---
 
+## UI Stack & Dependencies
+
+> Source: PRD drafted 2026-05 (Bundle 13 scope). Merged here as the authoritative design contract.
+
+### Vision & Aesthetic
+
+**Name**: Zuki-OS
+**Style**: High Tech – Low Life — dark matte backgrounds, cyber-glow accents (Cyan / Magenta / Amber),
+raster overlays, glitch transitions on window actions, monospace typography.
+Functional but atmospherically dense — the interface of a netrunner's deck.
+
+### Architecture
+
+- **Universal Frontend**: React PWA — runs on Windows now, seamless on Linux later.
+- **Frameless**: No OS chrome. Window controls via PWA `display_override: window-controls-overlay`.
+  Close/minimize icons appear only on hover.
+- **Draggable**: Entire window is the drag surface. Interactive elements (buttons, charts, inputs)
+  are explicitly marked as no-drag zones.
+
+### Separation of Concerns
+
+| Layer | Responsibility |
+|---|---|
+| Core Logic | Data fetching, broker APIs, window control (wmctrl) — fully decoupled from UI code |
+| UI Adapter | Components are theme-agnostic; appearance injected by active Theme Profile |
+
+### Theme-Swapping System
+
+- **Global Theme Provider** in React — switches between design definitions at runtime.
+- Each genre defines: color palette, animation timings/easings, sound profiles, border/glow styles.
+- Sound profiles activate on first user interaction (browser AudioContext policy).
+- New genre = new config file only — zero code changes.
+
+**Built-in genres (planned)**: Cyberpunk-Industrial, Clean-Minimalist, Retro-Terminal.
+
+### Broker Skill ("War Room" View)
+
+- **Center**: Dynamic world map (SVG vector) with pulsing data nodes.
+- **Sidebar**: News feed scrolls as a terminal log on the right edge.
+- **Displays**: Routing logic sends stock charts to wall monitors via `window_profiles.json`.
+
+### Technical Implementation
+
+- **Backend**: Python WebSocket server bridges `wmctrl` commands to the React frontend.
+- **Window Profiles**: Automated multi-monitor layout management via `window_profiles.json`.
+
+### Dependency Targets (Bundle 13)
+
+| Package | Role |
+|---|---|
+| Vite | Build tool |
+| React + TypeScript | Component framework |
+| Tailwind CSS | Utility-first styling |
+| Zustand | Client state |
+| WebSocket (Python `websockets`) | IPC bridge to Python backend |
+
+---
+
 ## Linux Migration Checklist
 
 Only two files need real implementation:
