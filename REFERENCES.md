@@ -11,8 +11,17 @@
 - Python 3.14, Windows 11 → Linux migration planned (Pop!_OS / Ubuntu 24.04)
 - LLM: Gemini primary (`gemini-1.5-flash-latest`), Claude, GPT via `APIManager`
 - STT: Whisper (local) · TTS: pyttsx3/SAPI5 (Windows), Piper stub (Linux)
-- Cloud: Vercel Serverless (Flask + redis-py + Vercel KV)
+- Cloud: Vercel Serverless (Flask + redis-py + Vercel KV) — `zuki_cloud/`
 - Future: local LLM via RTX 5090 as additional `APIManager` provider
+
+## Top-Level Files
+
+| File | Purpose |
+|---|---|
+| `PERSONA.md` | Zuki's identity and character definition — loaded as system prompt by `core/llm_manager.py` |
+| `CLAUDE.md` | Workspace routing map for AI assistants |
+| `REFERENCES.md` | Architecture decisions, naming conventions, tech debt, roadmap |
+| `CONTEXT.md` | Current project state and active constraints |
 
 ---
 
@@ -125,10 +134,7 @@ Guard mode controlled by `SKILL_TENANT_GUARD=warn|auto|off` in `.env`.
 |---|---|---|---|
 | 1 | `LLMManager` + `APIManager` overlap | Low | Merge when there is pain |
 | 2 | `core/news_manager.py` + `workspaces/broker/scraper.py` both inactive | Low | Consolidate into `workspaces/broker/fetch.py` when live scraper starts |
-| 3 | `workspaces/test_skill.py` (PingSkill) in production folder | Low | Delete after final tests |
-| 4 | `CRM_HTML_PATH` in `.env` — dead key | None | Delete from `.env` |
-| 5 | Legacy `zuki:memories` cloud key without tenant suffix | Low | Remove after 2026-05-25 |
-| 6 | Duplicate `workspaces/` block in old ARCHITECTURE.md | None | Resolved — file replaced |
+| 3 | Legacy `zuki:memories` cloud key without tenant suffix | Low | Remove after 2026-05-25 |
 
 ---
 
