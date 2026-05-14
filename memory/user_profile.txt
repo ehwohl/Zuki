@@ -1,5 +1,0 @@
-Name: Profi
-Niveau: Profi
-Aktien: 
-Interessen: Zocken
-Zuletzt aktualisiert: 2026-05-07

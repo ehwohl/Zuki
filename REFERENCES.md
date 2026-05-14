@@ -11,8 +11,17 @@
 - Python 3.14, Windows 11 → Linux migration planned (Pop!_OS / Ubuntu 24.04)
 - LLM: Gemini primary (`gemini-1.5-flash-latest`), Claude, GPT via `APIManager`
 - STT: Whisper (local) · TTS: pyttsx3/SAPI5 (Windows), Piper stub (Linux)
-- Cloud: Vercel Serverless (Flask + redis-py + Vercel KV)
+- Cloud: Vercel Serverless (Flask + redis-py + Vercel KV) — `zuki_cloud/`
 - Future: local LLM via RTX 5090 as additional `APIManager` provider
+
+## Top-Level Files
+
+| File | Purpose |
+|---|---|
+| `PERSONA.md` | Zuki's identity and character definition — loaded as system prompt by `core/llm_manager.py` |
+| `CLAUDE.md` | Workspace routing map for AI assistants |
+| `REFERENCES.md` | Architecture decisions, naming conventions, tech debt, roadmap |
+| `CONTEXT.md` | Current project state and active constraints |
 
 ---
 
@@ -125,10 +134,7 @@ Guard mode controlled by `SKILL_TENANT_GUARD=warn|auto|off` in `.env`.
 |---|---|---|---|
 | 1 | `LLMManager` + `APIManager` overlap | Low | Merge when there is pain |
 | 2 | `core/news_manager.py` + `workspaces/broker/scraper.py` both inactive | Low | Consolidate into `workspaces/broker/fetch.py` when live scraper starts |
-| 3 | `workspaces/test_skill.py` (PingSkill) in production folder | Low | Delete after final tests |
-| 4 | `CRM_HTML_PATH` in `.env` — dead key | None | Delete from `.env` |
-| 5 | Legacy `zuki:memories` cloud key without tenant suffix | Low | Remove after 2026-05-25 |
-| 6 | Duplicate `workspaces/` block in old ARCHITECTURE.md | None | Resolved — file replaced |
+| 3 | Legacy `zuki:memories` cloud key without tenant suffix | Low | Remove after 2026-05-25 |
 
 ---
 
@@ -177,6 +183,64 @@ Three small displays below main 49" Odyssey OLED G9:
 Galleon SD keyboard with Stream Deck for Zuki hotkeys.
 Wall display: Samsung SH37F stretched (TradingView ambient).
 RAM target: Zuki + full UI under 300 MB (lazy-loading, web architecture).
+
+---
+
+## UI Stack & Dependencies
+
+> Source: PRD drafted 2026-05 (Bundle 13 scope). Merged here as the authoritative design contract.
+
+### Vision & Aesthetic
+
+**Name**: Zuki-OS
+**Style**: High Tech – Low Life — dark matte backgrounds, cyber-glow accents (Cyan / Magenta / Amber),
+raster overlays, glitch transitions on window actions, monospace typography.
+Functional but atmospherically dense — the interface of a netrunner's deck.
+
+### Architecture
+
+- **Universal Frontend**: React PWA — runs on Windows now, seamless on Linux later.
+- **Frameless**: No OS chrome. Window controls via PWA `display_override: window-controls-overlay`.
+  Close/minimize icons appear only on hover.
+- **Draggable**: Entire window is the drag surface. Interactive elements (buttons, charts, inputs)
+  are explicitly marked as no-drag zones.
+
+### Separation of Concerns
+
+| Layer | Responsibility |
+|---|---|
+| Core Logic | Data fetching, broker APIs, window control (wmctrl) — fully decoupled from UI code |
+| UI Adapter | Components are theme-agnostic; appearance injected by active Theme Profile |
+
+### Theme-Swapping System
+
+- **Global Theme Provider** in React — switches between design definitions at runtime.
+- Each genre defines: color palette, animation timings/easings, sound profiles, border/glow styles.
+- Sound profiles activate on first user interaction (browser AudioContext policy).
+- New genre = new config file only — zero code changes.
+
+**Built-in genres (planned)**: Cyberpunk-Industrial, Clean-Minimalist, Retro-Terminal.
+
+### Broker Skill ("War Room" View)
+
+- **Center**: Dynamic world map (SVG vector) with pulsing data nodes.
+- **Sidebar**: News feed scrolls as a terminal log on the right edge.
+- **Displays**: Routing logic sends stock charts to wall monitors via `window_profiles.json`.
+
+### Technical Implementation
+
+- **Backend**: Python WebSocket server bridges `wmctrl` commands to the React frontend.
+- **Window Profiles**: Automated multi-monitor layout management via `window_profiles.json`.
+
+### Dependency Targets (Bundle 13)
+
+| Package | Role |
+|---|---|
+| Vite | Build tool |
+| React + TypeScript | Component framework |
+| Tailwind CSS | Utility-first styling |
+| Zustand | Client state |
+| WebSocket (Python `websockets`) | IPC bridge to Python backend |
 
 ---
 

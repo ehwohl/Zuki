@@ -154,6 +154,48 @@ kpis:
     target: "Top 20% der Kategorie im Ort"
     einheit: Rang
 
+  - id: fotos_anzahl
+    label: Google-Fotos
+    description: Anzahl der Fotos im Google Business Profil
+    target: "≥ 10 Fotos"
+    einheit: Anzahl
+
+  - id: menu_vorhanden
+    label: Menü-Link im Profil
+    description: Ob eine direkte Speisekarte im Google Business Profil verknüpft ist
+    target: "ja"
+    einheit: ja/nein
+
+  - id: buchung_vorhanden
+    label: Online-Buchung aktiviert
+    description: Ob ein direkter Reservierungslink im Google Business Profil hinterlegt ist
+    target: "ja"
+    einheit: ja/nein
+
+  - id: lieferung_aktiviert
+    label: Service-Optionen
+    description: Ob Lieferung, Abholung und/oder Vor-Ort-Verzehr aktiviert sind
+    target: "mind. 2 Optionen"
+    einheit: Optionen
+
+  - id: preis_erfasst
+    label: Preisniveau hinterlegt
+    description: Ob das Preisniveau (€ bis ££££) im Google Business Profil gesetzt ist
+    target: "gesetzt"
+    einheit: €-Kategorie
+
+  - id: google_posts_aktiv
+    label: Google Business Posts
+    description: Anzahl aktiver Betreiber-Posts im Google Profil
+    target: "≥ 1 Post/Monat"
+    einheit: Anzahl Posts
+
+  - id: konkurrenz_dichte
+    label: Konkurrenten im Umkreis
+    description: Anzahl vergleichbarer Betriebe im direkten Umfeld (Google Maps Radius)
+    target: "Kontext"
+    einheit: Anzahl
+
 # ── Tool-Empfehlungen ─────────────────────────────────────────────────────────
 tools:
   - name: Google Business Profile

@@ -129,7 +129,7 @@ class KnowledgeBase:
                     "fix_hint": f"YAML-Datei in {self._dir} ablegen (Schema: branch, label, weaknesses, kpis, tools, glossary)",
                 }
             branches = ", ".join(self.list_branches())
-            # Mindest-Validierung: erste Branche muss weaknesses + kpis haben
+            # Minimum validation: first branch must have weaknesses + kpis
             first = self.list_branches()[0]
             w_count = len(self.get_weaknesses(first))
             k_count = len(self.get_kpis(first))

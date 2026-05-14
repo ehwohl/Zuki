@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C d:\\\\Zuki status --short)",
+      "Bash(dir d:\\\\Zuki /b)"
+    ]
+  }
+}

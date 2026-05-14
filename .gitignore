@@ -8,8 +8,10 @@ temp/
 logs/
 backups/
 
-# ── Zukünftige Tenant-Daten (Bundle 5) ───────────────────────────────────────
+# ── Runtime user data (session state, profiles — not source code) ─────────────
 memory/clients/
+memory/*.json
+memory/*.txt
 
 # ── Python-Artifacts ──────────────────────────────────────────────────────────
 __pycache__/

@@ -89,11 +89,11 @@ def capture_active_screen() -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     with mss.mss() as sct:
-        # monitor[0] = gesamte virtuelle Oberfläche, monitor[1] = primärer Bildschirm
+        # monitor[0] = entire virtual surface, monitor[1] = primary display
         monitor = sct.monitors[1]
         raw     = sct.grab(monitor)
 
-        # mss gibt BGR-Daten zurück → PIL konvertiert nach RGB
+        # mss returns BGR data → PIL converts to RGB
         img = Image.frombytes("RGB", raw.size, raw.bgra, "raw", "BGRX")
         img.save(FRAME_PATH, format="JPEG", quality=JPEG_QUALITY, optimize=True)
 

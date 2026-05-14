@@ -43,7 +43,7 @@ _ASSETS    = _ROOT / "assets"
 _ERROR_LOG = _ROOT / "logs" / "error.log"
 _LOGO_PATH = _ASSETS / "logo.png"
 
-# ── reportlab Import (optional) ───────────────────────────────────────────────
+# ── reportlab import (optional) ───────────────────────────────────────────────
 
 try:
     from reportlab.lib import colors
@@ -67,7 +67,7 @@ except ImportError:
     log.warning("reportlab fehlt — pip install reportlab")
 
 
-# ── Fehler-Logging ────────────────────────────────────────────────────────────
+# ── Error logging ─────────────────────────────────────────────────────────────
 
 def _write_error_log(context: str, exc: Exception) -> None:
     try:

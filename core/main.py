@@ -20,14 +20,14 @@ from core.ui_renderer import UIRenderer
 
 log = get_logger("main")
 
-# ui wird in run() nach load_env() initialisiert (damit ZUKI_UI aus .env wirkt).
-# Modul-Level-Fallback damit Hilfsfunktionen (listen, shutdown …) immer
-# auf ein gültiges Objekt treffen, auch wenn sie vor run() aufgerufen werden.
+# ui is initialized in run() after load_env() so ZUKI_UI from .env takes effect.
+# Module-level fallback so helpers (listen, shutdown, …) always
+# have a valid object even if called before run().
 ui: UIRenderer = _get_renderer()
 
 ENV_FILES = [
     os.path.join(ROOT, ".env"),
-    os.path.join(ROOT, "persona", "config", ".env"),
+    os.path.join(ROOT, "workspaces", "os", "voice", "config", ".env"),
 ]
 
 from core.llm_manager import LLMManager
@@ -63,21 +63,21 @@ TENANT_CMD       = "tenant"
 SCRAPER_INTERVAL = int(os.getenv("SCRAPER_INTERVAL", "600"))  # default 10 min
 
 
-# ── Tenant-Guard ───────────────────────────────────────────────────────────────
+# ── Tenant Guard ───────────────────────────────────────────────────────────────
 
 def _tenant_guard(skill, tenant_mgr) -> bool:
     """
-    Prüft ob ein Skill im richtigen Tenant läuft.
-    Gibt True zurück wenn der Skill fortfahren darf, False wenn abgebrochen.
+    Checks whether a skill is running in the correct tenant.
+    Returns True if the skill may proceed, False if it should abort.
 
-    Steuerung via ENV SKILL_TENANT_GUARD:
-      warn (Standard) — warnt + fragt nach (weiter / tenant <Name> / nein)
-      auto            — warnt + fragt automatisch nach Tenant-Name, erstellt + wechselt,
-                        Skill läuft dann direkt im neuen Tenant weiter
-      off             — kein Guard (für alle Skills deaktiviert)
+    Controlled via ENV SKILL_TENANT_GUARD:
+      warn (default) — warns + prompts (continue / tenant <name> / no)
+      auto           — warns + automatically prompts for tenant name, creates + switches,
+                       skill then runs directly in the new tenant
+      off            — guard disabled for all skills
 
-    KONVENTION: Wird vor JEDEM Skill-Call aufgerufen (Schnellpfad + Router).
-    Skills mit tenant_aware=False (Test/Utility-Skills) werden übersprungen.
+    CONVENTION: Called before EVERY skill invocation (fast-path + router).
+    Skills with tenant_aware=False (test/utility skills) are skipped.
     """
     if not getattr(skill, "tenant_aware", True):
         return True
@@ -90,7 +90,7 @@ def _tenant_guard(skill, tenant_mgr) -> bool:
     if current != "self":
         return True   # bereits in Kunden-Tenant — alles gut
 
-    # ── Im self-Tenant: warnen ─────────────────────────────────────────────────
+    # ── In self-tenant: warn ───────────────────────────────────────────────────
     if guard_mode == "auto":
         ui.speak_zuki(
             f"⚠️  Tenant-Warnung: Aktiver Workspace ist 'self' (Privat).\n"
@@ -237,14 +237,14 @@ def shutdown(stt: WhisperEngine, tts: TTSEngine) -> None:
     ui.system_msg("Zuki offline. Auf Wiedersehen, Sir.")
 
 
-# ── Hauptschleife ──────────────────────────────────────────────────────────────
+# ── Main loop ──────────────────────────────────────────────────────────────────
 
 def run():
     global ui
     load_env(ENV_FILES)
     ui = _get_renderer()
 
-    # ── Single-Instance-Guard — verhindert Mehrfachstart ─────────────────────
+    # ── Single-instance guard — prevents duplicate startup ────────────────────
     if not _guard_acquire():
         ui.error_msg(
             "Zuki läuft bereits in einem anderen Fenster.\n"
@@ -253,8 +253,8 @@ def run():
         return
     atexit.register(_guard_release)
 
-    # ── Session-State: unclean-Exit erkennen ──────────────────────────────────
-    # Zuerst registrieren → als letztes aufgerufen (LIFO) → nach shutdown()
+    # ── Session state: detect unclean exit ────────────────────────────────────
+    # Registered first → called last (LIFO) → after shutdown()
     state = SessionState()
     atexit.register(state.clear)
 
@@ -280,11 +280,11 @@ def run():
                 _prev_state = None
                 log.info("[SESSION-CLEAR] Wiederherstellung abgelehnt — State verworfen")
 
-    # ── Tenant-Manager — früh initialisieren ──────────────────────────────────
+    # ── Tenant manager — initialize early ─────────────────────────────────────
     tenant_mgr = get_tenant_manager()
     _migration_needed = not tenant_mgr.migration_done()
 
-    # ── Lokale Datei-Migration (Profil-Umbenennung, vor UserProfile-Init) ─────
+    # ── Local file migration (profile rename, before UserProfile init) ─────────
     if _migration_needed:
         import shutil as _shutil
         _old_profile = os.path.join(ROOT, "memory", "user_profile.txt")
@@ -325,7 +325,7 @@ def run():
     news     = NewsManager()
     api_mgr  = APIManager()
 
-    # ── Vision-System initialisieren (Cleanup alter Frames) ───────────────────
+    # ── Initialize vision system (clean up stale frames) ──────────────────────
     vision.init()   # loggt intern — kein Terminal-Output
 
     # ── Scraper-Hintergrund-Thread ─────────────────────────────────────────────
@@ -354,14 +354,14 @@ def run():
     # ── Router-Agent ───────────────────────────────────────────────────────────
     router = RouterAgent(api_mgr)
 
-    # ── Startup-Dashboard — Screen clearen für saubere Anzeige ───────────────
+    # ── Startup dashboard — clear screen for clean display ────────────────────
     os.system("cls" if sys.platform == "win32" else "clear")
     display_startup_dashboard(llm, api_mgr, stt, tts, history, profile, tenant_mgr)
 
     broker_mode   = False   # activated by 'broker' command
-    last_response = ""      # letzte Zuki-Antwort — für manuelles / Auto-Speichern
+    last_response = ""      # last Zuki response — for manual / auto save
 
-    # ── Cloud-Gedächtnis — unabhängig vom LLM-Simulations-Modus ─────────────
+    # ── Cloud memory — independent of LLM simulation mode ────────────────────
     cloud = CloudMemory()
     if cloud.enabled:
         ok, msg = cloud.ping()
@@ -370,10 +370,10 @@ def run():
         else:
             ui.error_msg(f"[☁] Cloud-Verbindung fehlgeschlagen: {msg}")
 
-    # ── Profil mit Cloud verbinden (für asynchronen Bio-Sync) ─────────────────
+    # ── Connect profile to cloud (for async bio sync) ─────────────────────────
     profile.set_cloud(cloud)
 
-    # ── Cloud-Migration (einmalig, nach Cloud-Init) ────────────────────────────
+    # ── Cloud migration (one-time, after cloud init) ───────────────────────────
     if _migration_needed:
         log.info("[TENANT-MIGRATION] Starte Cloud-Migration...")
         if cloud.enabled:
@@ -382,7 +382,7 @@ def run():
         tenant_mgr.mark_migration_done()
         ui.system_msg("[TENANT-MIGRATION] Abgeschlossen — Daten auf Tenant-Struktur umgestellt.")
 
-    # ── Bio-Recovery: lokales Profil leer → aus Cloud anbieten ───────────────
+    # ── Bio recovery: local profile empty → offer restore from cloud ──────────
     if profile.is_empty and cloud.enabled:
         log.info("[BIO-CHECK] Lokales Profil leer — prüfe Cloud-Backup")
         bio = cloud.get_latest_bio()
@@ -401,7 +401,7 @@ def run():
             else:
                 log.info("[BIO-RESTORE] Wiederherstellung abgelehnt")
 
-    # ── Session-State-Helper (Closure über lokale Variablen) ─────────────────
+    # ── Session state helper (closure over local variables) ───────────────────
     def _save_state() -> None:
         state.save({
             "broker_mode":      broker_mode,
@@ -411,7 +411,7 @@ def run():
             "last_response":    last_response[:500],
         })
 
-    # ── Session-Recovery anwenden ─────────────────────────────────────────────
+    # ── Apply session recovery ─────────────────────────────────────────────────
     if _restore_answer and _prev_state:
         if _prev_state.get("broker_mode"):
             broker_mode     = True
@@ -472,7 +472,7 @@ def run():
 
             # ── Vision ─────────────────────────────────────────────────────────
             if cmd in VISION_TRIGGERS:
-                # Schritt 1: Screenshot aufnehmen
+                # Step 1: capture screenshot
                 ui.thinking()
                 try:
                     frame_path = vision.capture_active_screen()
@@ -485,14 +485,14 @@ def run():
                     continue
 
                 if api_mgr.simulation:
-                    # SIM: kein echter API-Key → Platzhalter
+                    # SIM: no real API key → placeholder response
                     ui.speak_zuki(
                         f"[VISION] Screenshot erstellt: {frame_path}\n"
                         f"(SIM: Für echte Bildanalyse GEMINI_API_KEY in .env setzen.)"
                     )
                     continue
 
-                # Schritt 2: User fragen was analysiert werden soll
+                # Step 2: ask the user what to analyze
                 ui.speak_zuki(
                     f"Screenshot erstellt  ({frame_path})\n"
                     f"Was soll ich auf diesem Bild analysieren?"
@@ -502,7 +502,7 @@ def run():
                 if not vision_question or vision_question.strip().lower() in EXIT_TRIGGERS:
                     continue
 
-                # Schritt 3: Bild + Frage an Gemini / Claude / GPT-4o senden
+                # Step 3: send image + question to Gemini / Claude / GPT-4o
                 ui.system_msg(
                     f"[VISION] Analysiere mit {api_mgr.provider_label}..."
                 )
@@ -514,7 +514,7 @@ def run():
                     max_tokens = 1024,
                 )
 
-                # Vision-Interaktion in History (kompakt)
+                # Record vision interaction in history (compact)
                 history.append("user",      f"[Vision-Frage] {vision_question}")
                 history.append("assistant", response)
                 last_response = response
@@ -539,7 +539,7 @@ def run():
                 continue
 
             # ── Cloud-Speichern ────────────────────────────────────────────────
-            # HINWEIS: Der LLM-Simulations-Modus hat KEINEN Einfluss auf Cloud-Saves.
+            # NOTE: LLM simulation mode has NO effect on cloud saves.
             if cmd in SAVE_TRIGGERS:
                 if not last_response:
                     ui.speak_zuki("Noch keine Antwort zum Speichern vorhanden.")
@@ -569,12 +569,12 @@ def run():
                         _save_state()
                 continue
 
-            # ── Tenant-Befehle ─────────────────────────────────────────────────
+            # ── Tenant commands ────────────────────────────────────────────────
             if cmd == TENANT_CMD or cmd.startswith(TENANT_CMD + " "):
                 _parts = cmd.split()
 
                 if len(_parts) == 1:
-                    # tenant → aktuellen + alle bekannten anzeigen
+                    # tenant → show current + all known tenants
                     _known = tenant_mgr.list_known()
                     ui.system_msg(
                         f"[TENANT] Aktiver Workspace: {tenant_mgr.current()}"
@@ -900,7 +900,7 @@ def run():
                     tts.speak(response)
                 continue
 
-            # ── Router-Agent: kein Trigger-Match → LLM entscheidet ────────────
+            # ── Router agent: no trigger match → LLM decides ──────────────────
             _routable = skill_registry.get_all_descriptions()
             if _routable and not api_mgr.simulation:
                 ui.thinking()
@@ -914,7 +914,7 @@ def run():
                             next((s["triggers"][0] for s in _routable if s["name"] == _sname), _sname)
                         )
                         if _sk is None:
-                            # Trigger-Map-Lookup als Fallback
+                            # Trigger-map lookup as fallback
                             from workspaces import registry as _sr
                             _sk = next(
                                 (inst for inst in set(_sr._registry.values()) if inst.name == _sname),
@@ -947,7 +947,7 @@ def run():
                         ui.speaking()
                         tts.speak(response)
                         continue
-                    # Router wählte Skills, aber alle gaben None zurück → LLM-Fallback
+                    # Router selected skills but all returned None → fall through to LLM
 
             # ── Report (nur im Broker-Modus) ───────────────────────────────────
             if news.is_report_trigger(user_input):
@@ -979,7 +979,7 @@ def run():
             # ── Normale Antwort ────────────────────────────────────────────────
             history.append("user", user_input)
 
-            # Lern-Logik: Profil-Extraktion aus jeder User-Eingabe
+            # Learning: extract profile facts from every user input
             learned = profile.extract_and_update(user_input)
             for fact in learned:
                 ui.system_msg(f"[MEM] Gelernt: {fact}")
@@ -987,7 +987,7 @@ def run():
 
             ui.thinking()
 
-            # Profil als Kontext-Präfix injizieren (nur wenn Daten vorhanden)
+            # Inject profile as context prefix (only when data is present)
             context = history.get_context()
             profile_summary = profile.get_summary()
             if profile_summary:

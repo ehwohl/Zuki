@@ -86,7 +86,7 @@ class HistoryManager:
         except Exception:
             current_tenant = "self"
 
-        # Nur Einträge des aktiven Tenants berücksichtigen
+        # Only include entries from the active tenant
         tenant_msgs = [
             m for m in self._messages
             if m.get("tenant_id", "self") == current_tenant

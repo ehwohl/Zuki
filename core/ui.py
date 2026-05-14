@@ -339,9 +339,9 @@ class TerminalRenderer(UIRenderer):
         print(f"   Ergebnis: {ok_s}  {warn_s}  {fail_s}\n")
 
 
-# ── Modul-Level-Forwarding (Abwärtskompatibilität) ────────────────────────────
-# Damit alter Code der Form `from core import ui; ui.speak_zuki(...)` weiter
-# funktioniert, bis er auf ui_factory umgestellt ist.
+# ── Module-level forwarding (backwards compatibility) ─────────────────────────
+# Lets old-style `from core import ui; ui.speak_zuki(...)` callers keep working
+# until they are migrated to ui_factory.
 
 _default = TerminalRenderer()
 

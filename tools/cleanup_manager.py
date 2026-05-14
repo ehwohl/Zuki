@@ -88,7 +88,7 @@ class CleanupManager:
             log.info(f"[CLEANUP] chats: {deleted} Nachrichten für tenant='{tenant_id}' gelöscht")
             return {"deleted": deleted, "tenant": tenant_id, "error": ""}
 
-        # Ohne history_mgr: direkt in der JSON-Datei filtern
+        # Without history_mgr: filter the JSON file directly
         if not os.path.exists(_HISTORY):
             log.info("[CLEANUP] chats: Keine History-Datei gefunden — nichts zu tun")
             return {"deleted": 0, "tenant": tenant_id, "error": ""}

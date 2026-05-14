@@ -2,7 +2,7 @@ import os
 import re
 
 ROOT          = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-IDENTITY_PATH = os.path.join(ROOT, "persona", "identity.md")
+IDENTITY_PATH = os.path.join(ROOT, "PERSONA.md")
 
 
 def _load_system_prompt(path: str) -> str:

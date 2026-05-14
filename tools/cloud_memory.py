@@ -39,7 +39,7 @@ _OUTBOX_PATH = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "temp", "cloud_outbox.jsonl")
 )
 
-# Placeholder-Muster die auf eine nicht konfigurierte URL hinweisen
+# Placeholder patterns that indicate an unconfigured URL
 _URL_PLACEHOLDER_PATTERNS = [
     "your-project",
     "your-",
@@ -217,12 +217,12 @@ class CloudMemory:
         self._token = os.environ.get("CLOUD_MEMORY_TOKEN", "").strip()
         self._session_id = str(uuid.uuid4())[:8]
 
-        # Zähler & Flags
+        # Counters & flags
         self._save_count = 0
         self._auto_save  = False
         self._prompted   = False
 
-        # Enabled-Check: URL muss gesetzt und kein Platzhalter sein
+        # Enabled check: URL must be set and not a placeholder
         self.enabled = (
             bool(self._url)
             and bool(self._token)
@@ -230,12 +230,12 @@ class CloudMemory:
             and not _is_placeholder(self._token, _TOKEN_PLACEHOLDER_PATTERNS)
         )
 
-        # Outbox — immer vorhanden, auch wenn cloud deaktiviert
+        # Outbox — always present even when cloud is disabled
         self.outbox = _Outbox(path=_OUTBOX_PATH, post_fn=self._post)
 
         if self.enabled:
             log.info(f"CloudMemory aktiv | {self._url} | Session: {self._session_id}")
-            # Startup-Flush: einmaliger Versuch falls Outbox-Datei existiert
+            # Startup flush: one-time attempt if outbox file exists
             if os.path.exists(_OUTBOX_PATH):
                 log.info(f"[OUTBOX-FLUSH] Startup-Flush gestartet (Datei gefunden)")
                 self.outbox.flush_async()
@@ -624,7 +624,7 @@ class CloudMemory:
                     f"Cloud gespeichert | HTTP {resp.status} | "
                     f"total={total} | session={self._session_id}"
                 )
-                # Verbindung steht — Outbox im Hintergrund leeren
+                # Connection live — drain outbox in the background
                 self.outbox.flush_async()
                 return f"ok  ·  {total} Einträge gesamt"
 
@@ -633,13 +633,13 @@ class CloudMemory:
             log.warning(f"CloudMemory {msg}")
             if e.code == 401:
                 return "Token falsch (401) — CLOUD_MEMORY_TOKEN in .env prüfen"
-            # HTTP-Fehler (4xx/5xx) → nicht in Outbox stecken (kein Netzwerkausfall)
+            # HTTP error (4xx/5xx) → do not queue in outbox (not a network outage)
             return msg
 
         except (urllib.error.URLError, OSError, TimeoutError) as e:
             msg = str(getattr(e, "reason", e))
             if self.outbox._in_flush:
-                # Im Flush-Kontext kein Re-Queue
+                # Do not re-queue during a flush
                 log.warning(f"CloudMemory Verbindungsfehler (Flush): {msg}")
                 return f"Keine Verbindung — {msg}"
             log.warning(f"CloudMemory Verbindungsfehler — Outbox: {msg}")

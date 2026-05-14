@@ -78,7 +78,7 @@ class EmailInterface:
 
         # ── LIVE UPGRADE ───────────────────────────────────────────────────────
         # Hier Gmail oder Outlook API einbinden.
-        # Rückgabe immer als list[dict] mit Keys:
+        # Always returns list[dict] with keys:
         #   id, from, subject, date, body, read, customer (optional)
         # ──────────────────────────────────────────────────────────────────────
         log.warning("EmailInterface: LIVE-Modus noch nicht implementiert — fallback SIM")

@@ -61,7 +61,7 @@ _USER_AGENTS = [
 ]
 
 
-# ── Fehler-Logging (analog api_manager.py) ────────────────────────────────────
+# ── Error logging (mirrors api_manager.py pattern) ────────────────────────────
 
 def _write_error_log(context: str, exc: Exception) -> None:
     try:
@@ -83,7 +83,7 @@ def _friendly_error(context: str, exc: Exception) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ScraperCache — Disk-Cache mit TTL
+# ScraperCache — disk cache with TTL
 # ══════════════════════════════════════════════════════════════════════════════
 
 class ScraperCache:
@@ -404,7 +404,8 @@ class GoogleBusinessAdapter:
 
     def __init__(self, scraper: "Scraper | None" = None) -> None:
         self._scraper  = scraper or get_scraper()
-        self._api_key  = os.getenv("SERPAPI_API_KEY", "")
+        # BUSINESS_SERPAPI_KEY takes priority, fallback to SERPAPI_API_KEY
+        self._api_key  = os.getenv("BUSINESS_SERPAPI_KEY", "") or os.getenv("SERPAPI_API_KEY", "")
         self._key_ok   = bool(self._api_key) and "your-" not in self._api_key
 
     def available(self) -> bool:
@@ -457,7 +458,7 @@ class GoogleBusinessAdapter:
             return []
         return data.get("local_results", [])
 
-    # ── Stub-Daten ────────────────────────────────────────────────────────────
+    # ── Stub data ─────────────────────────────────────────────────────────────
 
     @staticmethod
     def _stub_place(query: str) -> dict:
@@ -471,6 +472,13 @@ class GoogleBusinessAdapter:
             "website": "https://example.com",
             "hours": {"Mo-Fr": "09:00-22:00", "Sa-So": "10:00-23:00"},
             "categories": ["Restaurant", "Gastronomie"],
+            "description": "Gemütliches Restaurant in bester Lage.",
+            "price_range": "€€",
+            "menu_link": "",
+            "booking_link": "",
+            "service_options": {"dine_in": True, "takeout": False, "delivery": False},
+            "images": [],           # 0 Fotos → Schwachstelle erkennbar
+            "owner_updates": [],    # keine Posts → Schwachstelle erkennbar
         }
 
     @staticmethod
@@ -483,7 +491,7 @@ class GoogleBusinessAdapter:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# InstagramPublicAdapter — Öffentliche Profil-Daten
+# InstagramPublicAdapter — public profile data
 # ══════════════════════════════════════════════════════════════════════════════
 
 class InstagramPublicAdapter:
@@ -555,7 +563,7 @@ class InstagramPublicAdapter:
             return []
         return data.get("data", [])
 
-    # ── Stub-Daten ────────────────────────────────────────────────────────────
+    # ── Stub data ─────────────────────────────────────────────────────────────
 
     @staticmethod
     def _stub_profile(username: str) -> dict:
@@ -607,7 +615,7 @@ def get_instagram_adapter() -> InstagramPublicAdapter:
     return InstagramPublicAdapter(scraper=get_scraper())
 
 
-# ── Modul-Level Status-API (für system_test ohne Instanz-Übergabe) ─────────────
+# ── Module-level status API (for system_test without instance reference) ───────
 
 def get_status() -> dict:
     return get_scraper().get_status()
