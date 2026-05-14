@@ -1,23 +1,23 @@
 """
-business_manager.py — Operativer Abteilungsleiter für Zuki
-────────────────────────────────────────────────────────────
-Verwaltet:
-  • Kundendatenbank  (data/customers.json)
-  • Aufgabenliste    (data/task_list.json)
-  • CRM-Sync         (HTML → customers.json)
-  • Mail-Entwürfe    (via EmailInterface)
+business_manager.py — Operational manager for Zuki
+─────────────────────────────────────────────────────
+Manages:
+  • Customer database  (data/customers.json)
+  • Task list          (data/task_list.json)
+  • CRM sync           (HTML → customers.json)
+  • Mail drafts        (via EmailInterface)
 
-Befehle (in main.py):
-  business status           → Übersicht
-  add customer [Name]       → Kunden anlegen
-  draft mail [Kunde]        → Antwort-Entwurf
+Commands (in main.py):
+  business status           → overview
+  add customer [Name]       → create customer
+  draft mail [Customer]     → draft reply
 
-CRM HTML-Sync:
-  sync_crm(html_path) parst <table>-Tags aus einer HTML-Datei.
-  Spalten-Mapping: Name / E-Mail / Status / Datum (configurable).
-  Ohne BeautifulSoup: Regex-Fallback.
+CRM HTML sync:
+  sync_crm(html_path) parses <table> tags from an HTML file.
+  Column mapping: Name / Email / Status / Date (configurable).
+  Without BeautifulSoup: regex fallback.
 
-  LIVE UPGRADE: BeautifulSoup für robusteres HTML-Parsing:
+  LIVE UPGRADE: BeautifulSoup for more robust HTML parsing:
     from bs4 import BeautifulSoup
     soup = BeautifulSoup(html, "html.parser")
     for row in soup.select("table tr")[1:]:
@@ -31,7 +31,7 @@ import uuid
 from datetime import date, datetime
 
 from core.logger import get_logger
-from skills.business.email_interface import EmailInterface
+from workspaces.business.email_interface import EmailInterface
 
 log = get_logger("business")
 
@@ -42,11 +42,11 @@ DATA_DIR  = os.path.join(_BUSINESS, "data")
 CUSTOMERS_FILE = os.path.join(DATA_DIR, "customers.json")
 TASKS_FILE     = os.path.join(DATA_DIR, "task_list.json")
 
-# Lokale CRM-HTML-Datei (Standard: web/crm/index.html)
+# Local CRM HTML file (default: web/crm/index.html)
 _CRM_FILE     = os.path.join(_ROOT, "web", "crm", "index.html")
 CRM_HTML_PATH = os.getenv("CRM_HTML_PATH", "") or _CRM_FILE
 
-# Spalten-Namen die im HTML-CRM erwartet werden (case-insensitive)
+# Column names expected in the HTML CRM (case-insensitive)
 _CRM_COL_NAME   = {"name", "kunde", "customer", "firma", "company"}
 _CRM_COL_EMAIL  = {"email", "e-mail", "mail"}
 _CRM_COL_STATUS = {"status", "phase", "typ"}
@@ -54,7 +54,7 @@ _CRM_COL_DATE   = {"datum", "date", "last contact", "letzter kontakt"}
 
 
 class BusinessManager:
-    """Zentrale Klasse für alle Business-Operationen."""
+    """Central class for all business operations."""
 
     def __init__(self):
         os.makedirs(DATA_DIR, exist_ok=True)
@@ -70,20 +70,20 @@ class BusinessManager:
 
     def get_status(self, simulation: bool = True) -> dict:
         """
-        Gibt ein Status-Dict zurück:
-          open_tasks       : Anzahl offener Aufgaben
-          high_prio        : Anzahl hoher Priorität
-          total_customers  : Gesamtkunden
-          leads            : Nur Leads
-          pending_mails    : Ausstehende Mails (SIM oder LIVE)
-          crm_synced       : Bool
-          last_contacts    : Liste der letzten 3 Kundenkontakte
+        Returns a status dict:
+          open_tasks       : number of open tasks
+          high_prio        : number of high-priority tasks
+          total_customers  : total customers
+          leads            : leads only
+          pending_mails    : pending mails (SIM or LIVE)
+          crm_synced       : bool
+          last_contacts    : list of last 3 customer contacts
         """
         open_tasks  = [t for t in self._tasks if t.get("status") == "offen"]
         high_prio   = [t for t in open_tasks  if t.get("priority") == "hoch"]
         leads       = [c for c in self._customers if c.get("status") == "Lead"]
 
-        # Letzte Kontakte: sortiert nach last_contact, neueste zuerst
+        # Last contacts: sorted by last_contact, newest first
         sorted_customers = sorted(
             self._customers,
             key=lambda c: c.get("last_contact", ""),
@@ -102,7 +102,7 @@ class BusinessManager:
         }
 
     def build_status_sim(self) -> str:
-        """SIM-Ausgabe für 'business status'."""
+        """SIM output for 'business status'."""
         s = self.get_status(simulation=True)
         tasks_str  = "\n".join(
             f"    [{p.upper()}] {t}" for t, p in s["open_task_list"]
@@ -129,7 +129,7 @@ class BusinessManager:
         )
 
     def build_status_live_prompt(self) -> str:
-        """LLM-Prompt für Live-Statusanalyse."""
+        """LLM prompt for live status analysis."""
         s      = self.get_status(simulation=False)
         tasks  = "\n".join(f"- [{p}] {t}" for t, p in s["open_task_list"])
         return (
@@ -143,15 +143,15 @@ class BusinessManager:
         )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Public — Kunden
+    # Public — Customers
     # ──────────────────────────────────────────────────────────────────────────
 
     def add_customer(self, name: str) -> dict:
-        """Legt neuen Kunden an. Gibt Kunden-Dict zurück."""
-        # Duplikat-Check
+        """Creates a new customer. Returns the customer dict."""
+        # Duplicate check
         existing = self._find_customer(name)
         if existing:
-            log.info(f"Kunde bereits vorhanden: {name}")
+            log.info(f"Customer already exists: {name}")
             return existing
 
         customer = {
@@ -165,7 +165,7 @@ class BusinessManager:
         }
         self._customers.append(customer)
         self._save_customers()
-        log.info(f"Neuer Kunde angelegt: {name}")
+        log.info(f"New customer created: {name}")
         return customer
 
     def get_customer(self, name: str) -> dict | None:
@@ -184,11 +184,11 @@ class BusinessManager:
         )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Public — Mail-Entwurf
+    # Public — Mail draft
     # ──────────────────────────────────────────────────────────────────────────
 
     def draft_mail(self, customer_name: str, simulation: bool = True) -> str:
-        """Erstellt einen Mail-Entwurf für den Kunden."""
+        """Creates a mail draft for the customer."""
         customer = self._find_customer(customer_name)
         if not customer:
             return (
@@ -200,15 +200,15 @@ class BusinessManager:
         return self._email.build_draft(customer, mail, simulation)
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Public — CRM öffnen
+    # Public — Open CRM
     # ──────────────────────────────────────────────────────────────────────────
 
     def open_crm(self) -> tuple[str, str]:
         """
-        Öffnet web/crm/index.html im Standard-Browser.
+        Opens web/crm/index.html in the default browser.
 
-        Rückgabe: (pfad: str, fehler: str)
-          Fehler ist leer bei Erfolg.
+        Returns: (path: str, error: str)
+          error is empty on success.
         """
         import webbrowser
 
@@ -220,27 +220,27 @@ class BusinessManager:
             log.warning(err)
             return "", err
 
-        # file:// URL — Backslashes auf Windows zu Forward-Slashes
+        # file:// URL — backslashes to forward-slashes on Windows
         url = "file:///" + _CRM_FILE.replace("\\", "/")
         webbrowser.open(url)
-        log.info(f"CRM geöffnet: {url}")
+        log.info(f"CRM opened: {url}")
         return _CRM_FILE, ""
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Public — CRM-Sync
+    # Public — CRM sync
     # ──────────────────────────────────────────────────────────────────────────
 
     def sync_crm(self, html_path: str = "") -> dict:
         """
-        Scannt eine HTML-CRM-Datei und spiegelt die Daten in customers.json.
+        Scans an HTML CRM file and mirrors the data into customers.json.
 
-        Rückgabe: {"imported": int, "updated": int, "skipped": int, "error": str}
+        Returns: {"imported": int, "updated": int, "skipped": int, "error": str}
 
-        Parsing-Strategie:
-          1. Versuche BeautifulSoup (robuster, aber optionale Dep.)
-          2. Fallback: Regex für einfache <tr>/<td>-Tabellen
+        Parsing strategy:
+          1. Try BeautifulSoup (more robust, but optional dep.)
+          2. Fallback: regex for simple <tr>/<td> tables
 
-        LIVE UPGRADE: BeautifulSoup für komplexe HTML-Strukturen:
+        LIVE UPGRADE: BeautifulSoup for complex HTML structures:
           from bs4 import BeautifulSoup
           soup = BeautifulSoup(html, "html.parser")
           header = [th.get_text(strip=True).lower()
@@ -283,7 +283,7 @@ class BusinessManager:
 
             existing = self._find_customer(name)
             if existing:
-                # Update vorhandener Felder
+                # Update existing fields
                 existing["email"]        = self._pick_col(row, _CRM_COL_EMAIL)  or existing["email"]
                 existing["status"]       = self._pick_col(row, _CRM_COL_STATUS) or existing["status"]
                 existing["last_contact"] = self._pick_col(row, _CRM_COL_DATE)   or existing["last_contact"]
@@ -302,20 +302,19 @@ class BusinessManager:
 
         self._save_customers()
         self._crm_synced = True
-        log.info(f"CRM-Sync: {result}")
+        log.info(f"CRM sync: {result}")
         return result
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Internal — HTML-Parsing
+    # Internal — HTML parsing
     # ──────────────────────────────────────────────────────────────────────────
 
     @staticmethod
     def _parse_html_table(html: str) -> list[dict]:
         """
-        Regex-basierter <table>-Parser.
-        Gibt list[dict] zurück, Keys = Spaltenköpfe (lowercase).
+        Regex-based <table> parser.
+        Returns list[dict] with keys = column headers (lowercase).
         """
-        # Alle Zeilen extrahieren
         row_re  = re.compile(r"<tr[^>]*>(.*?)</tr>", re.IGNORECASE | re.DOTALL)
         cell_re = re.compile(r"<t[hd][^>]*>(.*?)</t[hd]>", re.IGNORECASE | re.DOTALL)
         tag_re  = re.compile(r"<[^>]+>")
@@ -327,7 +326,7 @@ class BusinessManager:
         if not rows:
             return []
 
-        # Erste Zeile = Header
+        # First row = header
         headers = [clean(c).lower() for c in cell_re.findall(rows[0])]
         if not headers:
             return []
@@ -337,7 +336,7 @@ class BusinessManager:
             cells = [clean(c) for c in cell_re.findall(row_html)]
             if not any(cells):
                 continue
-            # Auffüllen/kürzen auf Header-Länge
+            # Pad/trim to header length
             while len(cells) < len(headers):
                 cells.append("")
             result.append(dict(zip(headers, cells[:len(headers)])))
@@ -346,14 +345,14 @@ class BusinessManager:
 
     @staticmethod
     def _pick_col(row: dict, col_names: set[str]) -> str:
-        """Findet den ersten Wert aus einem Row-Dict der zu einem der Spaltennamen passt."""
+        """Finds the first value from a row dict that matches one of the column names."""
         for key, val in row.items():
             if key.strip().lower() in col_names:
                 return val.strip()
         return ""
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Internal — Persistenz
+    # Internal — Persistence
     # ──────────────────────────────────────────────────────────────────────────
 
     def _find_customer(self, name: str) -> dict | None:
@@ -361,7 +360,7 @@ class BusinessManager:
         for c in self._customers:
             if c.get("name", "").lower() == name_lower:
                 return c
-        # Fuzzy: Teilstring-Match
+        # Fuzzy: substring match
         for c in self._customers:
             if name_lower in c.get("name", "").lower():
                 return c
@@ -371,8 +370,8 @@ class BusinessManager:
         self._customers = self._load_json(CUSTOMERS_FILE, default=[])
         self._tasks     = self._load_json(TASKS_FILE,     default=[])
         log.info(
-            f"Business geladen: {len(self._customers)} Kunden, "
-            f"{len([t for t in self._tasks if t.get('status')=='offen'])} offene Tasks"
+            f"Business loaded: {len(self._customers)} customers, "
+            f"{len([t for t in self._tasks if t.get('status')=='offen'])} open tasks"
         )
 
     def _save_customers(self) -> None:
@@ -389,7 +388,7 @@ class BusinessManager:
             with open(path, encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, OSError) as e:
-            log.warning(f"JSON-Ladefehler {path}: {e}")
+            log.warning(f"JSON load error {path}: {e}")
             return default
 
     @staticmethod
@@ -399,4 +398,4 @@ class BusinessManager:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except OSError as e:
-            log.error(f"JSON-Speicherfehler {path}: {e}")
+            log.error(f"JSON save error {path}: {e}")

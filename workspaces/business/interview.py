@@ -1,10 +1,10 @@
 """
-interview.py — Workflow-Audit-Interview für Gastro-Betriebe
+interview.py — Workflow audit interview for gastro businesses
 ─────────────────────────────────────────────────────────────
-Zuki führt einen strukturierten Fragebogen durch.
-Antworten werden gesammelt und als Interview-Report aufbereitet.
+Zuki runs a structured questionnaire.
+Answers are collected and prepared as an interview report.
 
-Verwendung:
+Usage:
   interview = WorkflowInterview()
   # in main.py loop:
   question = interview.next_question()
@@ -18,7 +18,7 @@ Status:
   interview.get_summary() → dict
   interview.to_report_notes() → str
 
-Log-Marker: [BUSINESS-INTERVIEW]
+Log marker: [BUSINESS-INTERVIEW]
 """
 
 from core.logger import get_logger
@@ -26,7 +26,8 @@ from core.logger import get_logger
 log = get_logger("business.interview")
 
 
-# ── Fragebogen-Definition ─────────────────────────────────────────────────────
+# ── Questionnaire definition ───────────────────────────────────────────────────
+# Questions are kept in German — they are shown directly to the user at runtime.
 
 _QUESTIONS: list[dict] = [
     {
@@ -98,8 +99,8 @@ _QUESTIONS: list[dict] = [
 
 class WorkflowInterview:
     """
-    Zustandsbehafteter Fragebogen — eine Frage nach der anderen.
-    Wird von BusinessSkill.handle() gesteuert (State in main.py gespeichert).
+    Stateful questionnaire — one question at a time.
+    Driven by BusinessSkill.handle() (state stored in main.py).
     """
 
     def __init__(self, restaurant_name: str = "") -> None:
@@ -108,7 +109,7 @@ class WorkflowInterview:
         self._index:    int            = 0
         self._done:     bool           = False
 
-        log.info(f"[BUSINESS-INTERVIEW] Gestartet für '{restaurant_name}' ({len(_QUESTIONS)} Fragen)")
+        log.info(f"[BUSINESS-INTERVIEW] Started for '{restaurant_name}' ({len(_QUESTIONS)} questions)")
 
     # ── Navigation ────────────────────────────────────────────────────────────
 
@@ -122,21 +123,21 @@ class WorkflowInterview:
             return
         q = _QUESTIONS[self._index]
         self._answers[q["id"]] = user_input.strip()
-        log.info(f"[BUSINESS-INTERVIEW] Frage {self._index + 1}/{len(_QUESTIONS)}: '{q['id']}' → '{user_input[:60]}'")
+        log.info(f"[BUSINESS-INTERVIEW] Question {self._index + 1}/{len(_QUESTIONS)}: '{q['id']}' → '{user_input[:60]}'")
         self._index += 1
         if self._index >= len(_QUESTIONS):
             self._done = True
-            log.info("[BUSINESS-INTERVIEW] Abgeschlossen")
+            log.info("[BUSINESS-INTERVIEW] Completed")
 
     def go_back(self) -> bool:
-        """Geht eine Frage zurück. Gibt False zurück wenn bereits bei Frage 1."""
+        """Go back one question. Returns False if already at question 1."""
         if self._index <= 0:
             return False
         self._index -= 1
         self._done = False
         old_id = _QUESTIONS[self._index]["id"]
         self._answers.pop(old_id, None)
-        log.info(f"[BUSINESS-INTERVIEW] Zurück zu Frage {self._index + 1}: '{old_id}'")
+        log.info(f"[BUSINESS-INTERVIEW] Back to question {self._index + 1}: '{old_id}'")
         return True
 
     def is_done(self) -> bool:
@@ -145,10 +146,10 @@ class WorkflowInterview:
     def progress(self) -> str:
         return f"{self._index}/{len(_QUESTIONS)}"
 
-    # ── Ergebnis ──────────────────────────────────────────────────────────────
+    # ── Result ────────────────────────────────────────────────────────────────
 
     def get_summary(self) -> dict:
-        """Gibt alle Antworten + Erkenntnisse als dict zurück."""
+        """Returns all answers + insights as dict."""
         return {
             "restaurant":   self._name,
             "answers":      self._answers,
@@ -157,7 +158,7 @@ class WorkflowInterview:
         }
 
     def to_report_notes(self) -> str:
-        """Kompakter Text für das Notizen-Feld im PDF-Report."""
+        """Compact text for the notes field in the PDF report."""
         lines = [f"Workflow-Audit — {self._name}", ""]
         for q in _QUESTIONS:
             qid = q["id"]
@@ -173,7 +174,7 @@ class WorkflowInterview:
         return "\n".join(lines)
 
     def format_question(self) -> str:
-        """Formatiert aktuelle Frage für Terminal-Ausgabe."""
+        """Formats current question for terminal output."""
         q = self.current_question()
         if q is None:
             return ""
@@ -184,7 +185,7 @@ class WorkflowInterview:
             f"  ({q['hint']})\n"
         )
 
-    # ── Interne Erkenntnisse ──────────────────────────────────────────────────
+    # ── Internal insights ─────────────────────────────────────────────────────
 
     def _derive_insights(self) -> list[str]:
         insights = []

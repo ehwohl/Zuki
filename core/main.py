@@ -38,8 +38,8 @@ from core.news_manager import NewsManager
 from core.calendar_manager import get_todays_events
 from memory.history_manager import HistoryManager
 from memory.user_profile import UserProfile
-from skills.broker.scraper import fetch_news
-from skills import registry as skill_registry
+from workspaces.broker.scraper import fetch_news
+from workspaces import registry as skill_registry
 from core import vision_manager as vision
 from tools.backup_manager import create_snapshot, format_snapshot_list, AutoBackup
 from tools.cloud_memory import CloudMemory
@@ -915,7 +915,7 @@ def run():
                         )
                         if _sk is None:
                             # Trigger-Map-Lookup als Fallback
-                            from skills import registry as _sr
+                            from workspaces import registry as _sr
                             _sk = next(
                                 (inst for inst in set(_sr._registry.values()) if inst.name == _sname),
                                 None,

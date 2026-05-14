@@ -96,6 +96,7 @@ class SystemTest:
             "scraper":    self._test_scraper,
             "report":     self._test_report,
             "knowledge":  self._test_knowledge,
+            "coding":     self._test_coding,
         }
 
     # ── Öffentliche API ───────────────────────────────────────────────────────
@@ -551,6 +552,45 @@ class SystemTest:
             summary  = result["summary"],
             fix_hint = result.get("fix_hint", ""),
         )
+
+    # ── Coding-Scratchpad ─────────────────────────────────────────────────────
+
+    def _test_coding(self) -> TestResult:
+        from workspaces.coding.sandbox import is_available, run_code
+        from workspaces.coding.buffer import LANGUAGES
+
+        # Python muss immer laufen
+        ok, hint = is_available("python")
+        if not ok:
+            return TestResult("coding", "fail", "Python-Interpreter nicht gefunden", hint)
+
+        # Quick-Smoke-Test: einfaches Python-Snippet ausführen
+        result = run_code("python", "print('zuki-coding-ok')", timeout=5)
+        if not result.success or "zuki-coding-ok" not in result.stdout:
+            return TestResult(
+                "coding", "fail",
+                f"Sandbox-Ausführung fehlgeschlagen: {result.format_output()[:80]}",
+                "temp/sandbox/ Verzeichnis prüfen; Python-Pfad in .env setzen",
+            )
+
+        # Optional: welche weiteren Interpreter verfügbar sind
+        available = ["python"]
+        missing   = []
+        for lang in sorted(LANGUAGES - {"python", "pine"}):
+            avail, _ = is_available(lang)
+            (available if avail else missing).append(lang)
+
+        pine_note = "pine→TradingView"
+        summary   = (
+            f"Sandbox OK  ·  Verfügbar: {', '.join(available + [pine_note])}"
+            + (f"  ·  Nicht installiert: {', '.join(missing)}" if missing else "")
+        )
+        status = "ok" if not missing else "warn"
+        hint   = (
+            f"Fehlende Interpreter: {', '.join(missing)} — optional, nur bei Bedarf installieren"
+            if missing else ""
+        )
+        return TestResult("coding", status, summary, hint)
 
     # ── Knowledge-Base ────────────────────────────────────────────────────────
 
