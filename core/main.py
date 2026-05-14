@@ -27,7 +27,7 @@ ui: UIRenderer = _get_renderer()
 
 ENV_FILES = [
     os.path.join(ROOT, ".env"),
-    os.path.join(ROOT, "persona", "config", ".env"),
+    os.path.join(ROOT, "workspaces", "os", "voice", "config", ".env"),
 ]
 
 from core.llm_manager import LLMManager

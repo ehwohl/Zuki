@@ -19,7 +19,7 @@ OPENAI (Alternative)
 
 AKTIVIERUNG
 -----------
-- Beide Keys in D:\Zuki\persona\config\.env eintragen
+- Beide Keys in D:\Zuki\workspaces\os\voice\config\.env eintragen
 - Anthropic hat Priorität wenn beide gesetzt sind
 - Zuki erkennt automatisch ob Key gültig ist:
     Modus : SIMULATION  → Platzhalter, kein Key
@@ -39,5 +39,5 @@ MODELL WECHSELN:
 
 RELEVANTE DATEIEN:
    D:\Zuki\core\llm_manager.py
-   D:\Zuki\persona\config\.env
-   D:\Zuki\persona\identity.md  (wird als System-Prompt geladen)
+   D:\Zuki\workspaces\os\voice\config\.env
+   D:\Zuki\PERSONA.md  (wird als System-Prompt geladen)
