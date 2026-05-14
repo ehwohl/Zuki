@@ -218,7 +218,7 @@ class SystemTest:
             return TestResult("tts", "fail", "TTSEngine nicht übergeben",
                               "SystemTest mit tts=tts instanziieren")
         # ab Bundle 8: TTSEngine ist Wrapper um Backend (WindowsTTS / LinuxTTS).
-        # Status-API liefert backend, voice, ready, platform.
+        # Status API returns backend, voice, ready, platform.
         try:
             status = t.get_status()
         except Exception as e:
@@ -434,7 +434,7 @@ class SystemTest:
             fix_hint = result.get("fix_hint", ""),
         )
 
-    # ── Tenant ────────────────────────────────────────────────────────────────
+    # ── Tenant check ──────────────────────────────────────────────────────────
 
     def _test_tenant(self) -> TestResult:
         tm = self._tenant_mgr
@@ -559,7 +559,7 @@ class SystemTest:
         from workspaces.coding.sandbox import is_available, run_code
         from workspaces.coding.buffer import LANGUAGES
 
-        # Python muss immer laufen
+        # Python must always be available
         ok, hint = is_available("python")
         if not ok:
             return TestResult("coding", "fail", "Python-Interpreter nicht gefunden", hint)
@@ -573,7 +573,7 @@ class SystemTest:
                 "temp/sandbox/ Verzeichnis prüfen; Python-Pfad in .env setzen",
             )
 
-        # Optional: welche weiteren Interpreter verfügbar sind
+        # Optional: which additional interpreters are available
         available = ["python"]
         missing   = []
         for lang in sorted(LANGUAGES - {"python", "pine"}):

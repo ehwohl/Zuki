@@ -202,7 +202,7 @@ class GitHubBackup:
         if not ok2:
             return False, f"git add fehlgeschlagen: {out2}"
 
-        # Nochmals prüfen ob nach add wirklich etwas gestaged ist
+        # Re-check whether anything is actually staged after add
         ok3, staged = _run_git(["diff", "--cached", "--name-only"])
         if not staged.strip():
             return False, "keine Änderungen nach git add (alles in .gitignore?)"
@@ -244,7 +244,7 @@ class GitHubBackup:
         ok, _ = _run_git(["log", "--oneline", "-1"])
         return ok
 
-    # ── Öffentliche Befehle ───────────────────────────────────────────────────
+    # ── Public commands ───────────────────────────────────────────────────────
 
     def cmd_init(self) -> str:
         """
@@ -277,7 +277,7 @@ class GitHubBackup:
                 "  → .env ausfüllen, dann 'system github init' erneut aufrufen."
             )
 
-        # Git-Config: User-Email + Name setzen falls leer (nötig für Commits)
+        # Git config: set user email + name if empty (required for commits)
         ok_name, _ = _run_git(["config", "user.name"])
         if not ok_name or not _:
             _run_git(["config", "user.name", "Zuki Auto-Backup"])
@@ -285,7 +285,7 @@ class GitHubBackup:
         if not ok_email or not _:
             _run_git(["config", "user.email", "zuki@localhost"])
 
-        # Remote setzen (ohne Token in der gespeicherten URL — nur für Display)
+        # Set remote (without token in the stored URL — display only)
         ok_remote, _ = _run_git(["remote", "get-url", "origin"])
         if ok_remote:
             _run_git(["remote", "set-url", "origin", self._repo_url])
@@ -368,7 +368,7 @@ class GitHubBackup:
             f"  Repo-URL        : {self._repo_url}"
         )
 
-    # ── self_test — für SystemTest-Integration ────────────────────────────────
+    # ── self_test — for SystemTest integration ────────────────────────────────
 
     def self_test(self) -> dict:
         """

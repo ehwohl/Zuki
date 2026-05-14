@@ -27,7 +27,7 @@ log = get_logger("profile")
 
 _PROFILE_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__))))
 
-# Legacy-Pfad (pre-Bundle-5) — nur für Migration-Referenz
+# Legacy path (pre-Bundle-5) — kept only as migration reference
 PROFILE_FILE = os.path.join(_PROFILE_DIR, "user_profile.txt")
 
 
@@ -82,9 +82,9 @@ class UserProfile:
     """
 
     def __init__(self, path: str | None = None):
-        # path nur für Legacy-Overrides/Tests; normalerweise None (→ tenant-aware)
+        # path only for legacy overrides/tests; normally None (→ tenant-aware)
         self._path_override  = path
-        self._cloud          = None                   # gesetzt via set_cloud()
+        self._cloud          = None                   # set via set_cloud()
         self._last_sync: datetime | None = None       # Status-API
         self._data: dict[str, str | list[str]] = {
             "name":       "",
@@ -165,7 +165,7 @@ class UserProfile:
                     interests.append(interest)
                     learned.append(f"Interesse: {interest}")
 
-        # Wissensniveau (für Professor-Skill)
+        # Knowledge level (for ProfessorSkill)
         for pattern, level_label in _LEVEL_PATTERNS:
             if re.search(pattern, text, re.IGNORECASE):
                 if self._data.get("level") != level_label:

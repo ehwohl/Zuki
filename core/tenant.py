@@ -26,7 +26,7 @@ log = get_logger("tenant")
 _ROOT         = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 _TENANTS_FILE = os.path.join(_ROOT, "temp", "tenants.json")
 
-# Interner Schlüssel im tenants-Dict — kein echter Tenant
+# Internal key in the tenants dict — not a real tenant
 _MIGRATION_KEY = "__migration_v1_done__"
 
 _SELF_DEFAULTS = {
@@ -154,7 +154,7 @@ class TenantManager:
             self._save()
         log.info("[TENANT-MIGRATION] Abgeschlossen — Marker gesetzt")
 
-    # ── Status-API (für system test) ──────────────────────────────────────────
+    # ── Status API (for system test) ──────────────────────────────────────────
 
     def self_test(self) -> dict:
         """Prüft die Tenant-Infrastruktur. Gibt dict mit status/summary zurück."""

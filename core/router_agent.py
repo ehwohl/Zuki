@@ -33,7 +33,7 @@ log = get_logger("router_agent")
 _ROOT     = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 _LOG_PATH = os.path.join(_ROOT, "temp", "router_decisions.jsonl")
 
-# Skill-Liste im Prompt auf maximal diese Anzahl begrenzen (Token-Sparmaßnahme)
+# Limit skill list in the prompt to this many entries (token conservation)
 _MAX_SKILLS_IN_PROMPT = 10
 
 # JSON-Extraktor — tolerant gegenüber LLM-Text rund um das Objekt
@@ -53,7 +53,7 @@ class RouterAgent:
         self._last:  dict | None = None
         log.info("[ROUTER] RouterAgent initialisiert")
 
-    # ── Öffentliche API ───────────────────────────────────────────────────────
+    # ── Public API ────────────────────────────────────────────────────────────
 
     def route(self, user_input: str, skills_info: list[dict]) -> list[str]:
         """
@@ -70,7 +70,7 @@ class RouterAgent:
         if not skills_info:
             return []
 
-        # Nur Skills mit Beschreibung in Prompt — begrenzt auf _MAX_SKILLS_IN_PROMPT
+        # Only skills with a description in the prompt — capped at _MAX_SKILLS_IN_PROMPT
         usable = skills_info[:_MAX_SKILLS_IN_PROMPT]
 
         prompt = self._build_prompt(user_input, usable)

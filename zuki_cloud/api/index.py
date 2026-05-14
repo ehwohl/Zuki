@@ -100,7 +100,7 @@ def save_memory():
         r.ltrim(mem_key, 0, MAX_ENTRIES - 1)
         total = r.llen(mem_key)
 
-        # Audit-Log: kompakter Eintrag pro Save
+        # Audit log: compact entry per save
         audit_entry = {
             "action":    "save",
             "timestamp": utc_now(),
@@ -139,8 +139,8 @@ def get_memories():
         raw     = r.lrange(mem_key, 0, fetch - 1)
         total   = r.llen(mem_key)
 
-        # Legacy-Fallback: wenn Tenant-Key leer, Legacy-Key lesen
-        # TODO: nach 2026-05-25 entfernen
+        # Legacy fallback: if tenant key is empty, read from legacy key
+        # TODO: remove after 2026-05-25
         if not raw and tenant == "self":
             raw   = r.lrange(LEGACY_MEM_KEY, 0, fetch - 1)
             total = r.llen(LEGACY_MEM_KEY)
@@ -197,8 +197,8 @@ def migrate_memories():
                 "message":  f"Ziel-Key bereits befüllt ({existing} Einträge) — übersprungen",
             })
 
-        # Einträge in LIFO-Reihenfolge kopieren:
-        # all_entries[0] = neuester → zuletzt lpush'd → landet am Kopf → korrekt
+        # Copy entries in LIFO order:
+        # all_entries[0] = newest → last lpush'd → lands at head → correct
         for entry in reversed(all_entries):
             r.lpush(_mem_key(target_tenant), entry)
         r.ltrim(_mem_key(target_tenant), 0, MAX_ENTRIES - 1)
@@ -214,7 +214,7 @@ def migrate_memories():
         return jsonify({"error": f"Redis-Fehler: {e}"}), 500
 
 
-# ── GET /api/memory/view — HTML-Ansicht für den Browser ───────────────────────
+# ── GET /api/memory/view — HTML view for the browser ─────────────────────────
 
 @app.route("/api/memory/view", methods=["GET"])
 def view_memories():
@@ -238,8 +238,8 @@ def view_memories():
         raw     = r.lrange(mem_key, 0, limit - 1)
         total   = r.llen(mem_key)
 
-        # Legacy-Fallback für self
-        # TODO: nach 2026-05-25 entfernen
+        # Legacy fallback for self
+        # TODO: remove after 2026-05-25
         if not raw and tenant == "self":
             raw   = r.lrange(LEGACY_MEM_KEY, 0, limit - 1)
             total = r.llen(LEGACY_MEM_KEY)
@@ -499,7 +499,7 @@ def cleanup_memories():
             continue
 
         if scope != "all":
-            # scope="source:<name>" — nur Einträge mit diesem source löschen
+            # scope="source:<name>" — only delete entries with this source
             target_source = scope.removeprefix("source:").strip()
             if entry.get("source") != target_source:
                 kept.append(item)

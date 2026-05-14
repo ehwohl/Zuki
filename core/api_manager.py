@@ -19,7 +19,7 @@ from core.logger import get_logger
 
 log = get_logger("api_manager")
 
-# ── Pfad zur Error-Log-Datei ───────────────────────────────────────────────────
+# ── Error log path ────────────────────────────────────────────────────────────
 _ROOT      = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _ERROR_LOG = os.path.join(_ROOT, "logs", "error.log")
 
@@ -32,24 +32,24 @@ def _write_error_log(context: str, exc: Exception) -> None:
         with open(_ERROR_LOG, "a", encoding="utf-8") as f:
             f.write(f"[{ts}]  {context}\n  {type(exc).__name__}: {exc}\n\n")
     except Exception:
-        pass   # Log-Fehler niemals an den User weitergeben
+        pass   # log errors must never surface to the user
 
 
-# ── Gemini-Modell-Fallback-Kette ───────────────────────────────────────────────
-# Nur bei 404 / Model-Not-Found aktiv.
-# Reihenfolge: stabilste zuerst. 1.5-Reihe ist deprecated (alle 404).
+# ── Gemini model fallback chain ────────────────────────────────────────────────
+# Active only on 404 / model-not-found.
+# Order: most stable first. 1.5-series is deprecated (all 404).
 _GEMINI_FALLBACK_MODELS = [
-    "gemini-2.0-flash",          # primär (entspricht .env Standard, bestätigt funktional)
-    "gemini-2.0-flash-001",      # stabile Point-Version
-    "gemini-2.5-flash",          # neuer, ggf. nicht für jeden Key freigeschaltet
-    "gemini-2.5-pro",            # Premium-Fallback
+    "gemini-2.0-flash",          # primary (matches .env default, confirmed functional)
+    "gemini-2.0-flash-001",      # stable point release
+    "gemini-2.5-flash",          # newer, may not be available for all keys
+    "gemini-2.5-pro",            # premium fallback
 ]
 
-# ── Placeholder-Listen ─────────────────────────────────────────────────────────
+# ── Placeholder lists ──────────────────────────────────────────────────────────
 _GEMINI_PLACEHOLDERS    = {"", "your-gemini-key-here", "your-key"}
 _ANTHROPIC_PLACEHOLDERS = {"", "your-key"}
 _OPENAI_PLACEHOLDERS    = {"", "your-key"}
-_LOCAL_PLACEHOLDERS     = {"", "http://localhost:11434"}   # Ollama-Default gilt als Stub
+_LOCAL_PLACEHOLDERS     = {"", "http://localhost:11434"}   # Ollama default counts as stub
 
 
 def _is_valid_gemini(key: str) -> bool:
@@ -128,7 +128,7 @@ def _friendly_error(provider: str, exc: Exception) -> str:
     )
 
 
-# ── Manager-Klasse ─────────────────────────────────────────────────────────────
+# ── Manager class ─────────────────────────────────────────────────────────────
 
 class APIManager:
     """
@@ -143,11 +143,11 @@ class APIManager:
         self._local_url     = os.environ.get("LOCAL_LLM_URL",     "").strip()
         self._local_model   = os.environ.get("LOCAL_LLM_MODEL",   "").strip()
 
-        # Modell aus .env — Fallback auf gemini-1.5-flash-latest (stabil)
+        # Model from .env — fallback to gemini-1.5-flash-latest (stable)
         env_model = os.environ.get("GEMINI_MODEL", "").strip()
         self._gemini_model = env_model if env_model else "gemini-1.5-flash-latest"
 
-        # Wird gesetzt wenn DSGVO-Constraint Gemini blockiert und kein anderer Provider verfügbar
+        # Set when GDPR constraint blocks Gemini and no other provider is available
         self._dsgvo_blocked = False
 
         self.provider   = self._detect_provider()
@@ -159,10 +159,10 @@ class APIManager:
             f"Gemini-Modell: {self._gemini_model}"
         )
 
-    # ── Provider-Erkennung ─────────────────────────────────────────────────────
+    # ── Provider detection ────────────────────────────────────────────────────
 
     def _detect_provider(self) -> str:
-        # Tenant-DSGVO-Constraint prüfen
+        # Check tenant GDPR constraint
         require_dsgvo = False
         try:
             from core.tenant import get_tenant_manager
@@ -176,7 +176,7 @@ class APIManager:
         local_ok     = _is_valid_local(self._local_url)
 
         if require_dsgvo:
-            # Gemini Free gilt als nicht DSGVO-konform → zuerst Anthropic/OpenAI/Local
+            # Gemini Free is not considered GDPR-compliant → prefer Anthropic/OpenAI/Local
             if anthropic_ok:
                 return "anthropic"
             if openai_ok:
@@ -185,7 +185,7 @@ class APIManager:
                 log.info(f"[LOCAL-LLM-STUB] URL erkannt: {self._local_url} — Stub aktiv")
                 return "local"
             if gemini_ok:
-                # Gemini vorhanden aber blockiert — markieren für User-Meldung in chat()
+                # Gemini present but blocked — flag for user message in chat()
                 self._dsgvo_blocked = True
                 log.warning(
                     "[DSGVO] Tenant erfordert DSGVO-konforme Provider — "
@@ -193,7 +193,7 @@ class APIManager:
                 )
             return "sim"
 
-        # Standard-Reihenfolge (kein DSGVO-Constraint)
+        # Default order (no GDPR constraint)
         if gemini_ok:
             return "gemini"
         if anthropic_ok:
@@ -224,7 +224,7 @@ class APIManager:
         Wechsel zum nächsten Modell NUR bei 404 (falscher Modellname).
         429 und andere Fehler werden sofort weitergegeben.
         """
-        # .env-Modell hat immer Vorrang — danach kommen Fallbacks ohne Duplikat
+        # .env model always takes priority — fallbacks follow without duplicates
         candidates = [self._gemini_model] + [
             m for m in _GEMINI_FALLBACK_MODELS if m != self._gemini_model
         ]
@@ -239,7 +239,7 @@ class APIManager:
                 )
                 result = call_fn(model)
 
-                # Gewähltes Modell für nächste Calls merken (silent)
+                # Remember chosen model for next calls (silent)
                 if model_name != self._gemini_model:
                     log.info(f"Gemini Fallback erfolgreich: {model_name}")
                     self._gemini_model = model_name

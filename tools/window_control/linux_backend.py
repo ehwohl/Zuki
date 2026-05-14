@@ -36,7 +36,7 @@ LIVE UPGRADE — Implementierungshinweise:
 
   lock_screen():
     subprocess.run(["xdg-screensaver", "lock"])
-    # Alt: loginctl lock-session  (für systemd-Sessions)
+    # Alt: loginctl lock-session  (for systemd sessions)
 
   shutdown_pc(delay_seconds):
     import shutil

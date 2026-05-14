@@ -8,7 +8,7 @@ from core.logger import get_logger
 
 # sounddevice benötigt PortAudio:
 #   Windows: automatisch mitgeliefert via pip install sounddevice
-#   Linux:   sudo apt install portaudio19-dev  dann pip install sounddevice
+#   Linux:   sudo apt install portaudio19-dev  then pip install sounddevice
 try:
     import sounddevice as sd
     _SD_AVAILABLE = True
