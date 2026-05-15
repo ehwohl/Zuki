@@ -1,0 +1,16 @@
+export const minimal: Record<string, string> = {
+  '--bg-base': '#111318',
+  '--bg-panel': 'rgba(20,22,28,0.95)',
+  '--accent-primary': '#E8EAF0',
+  '--accent-secondary': '#8090A0',
+  '--accent-warning': '#E8B040',
+  '--text-primary': '#E8EAF0',
+  '--text-secondary': '#607080',
+  '--border-color': 'rgba(255,255,255,0.08)',
+  '--glow-primary': 'none',
+  '--glow-secondary': 'none',
+  '--color-up': '#40C880',
+  '--color-down': '#E04040',
+  '--grain-opacity': '0',
+  '--glitch-enabled': '0',
+}

@@ -1,0 +1,37 @@
+{
+  "name": "zuki-os",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@pixiv/three-vrm": "^2.1.1",
+    "clsx": "^2.1.1",
+    "d3": "^7.9.0",
+    "framer-motion": "^11.3.31",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.4.0",
+    "three": "^0.164.0",
+    "topojson-client": "^3.1.0",
+    "zustand": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.164.0",
+    "@types/topojson-client": "^3.1.4",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.40",
+    "tailwindcss": "^3.4.7",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.4",
+    "vite-plugin-pwa": "^0.20.5"
+  }
+}

@@ -145,9 +145,11 @@ Guard mode controlled by `SKILL_TENANT_GUARD=warn|auto|off` in `.env`.
   GitHub backup, tenant pattern, router agent, cleanup commands, platform agnosticism,
   web scraping layer, PDF reports, knowledge base, coding scratchpad, business skill MVP.
 
-### Next (no active bundle)
+### Active
+- **Bundle 13** — UI Foundation ✓ Shell scaffolded (`ui/` — Vite + React 18 + TS + Tailwind, WebSocket bridge, zustand, D3, Three.js). See `PRODUCT.md` and `DESIGN.md` for design contract. Next: Bundle 14 (Business 3D city + Coding dep graph).
+
+### Next
 - **Bundle 10** — Office Skill + Google Drive (OAuth2, OCR, LLM classification, SQLite index)
-- **Bundle 13** — UI Foundation (Vite + React + TS + Tailwind, WebSocket bridge, zustand)
 
 ### Blocked
 - Bundle 17+ (Business full build) — blocked on praxis test with 5–10 real restaurants first.

@@ -1,0 +1,16 @@
+export const presentation: Record<string, string> = {
+  '--bg-base': '#0D0F14',
+  '--bg-panel': 'rgba(15,18,24,0.98)',
+  '--accent-primary': '#20FFFF',
+  '--accent-secondary': '#FF20B0',
+  '--accent-warning': '#FFBE00',
+  '--text-primary': '#F0F2F8',
+  '--text-secondary': '#8090A8',
+  '--border-color': 'rgba(0,245,255,0.2)',
+  '--glow-primary': '0 0 12px rgba(0,245,255,0.3)',
+  '--glow-secondary': 'none',
+  '--color-up': '#00E0A0',
+  '--color-down': '#FF4060',
+  '--grain-opacity': '0',
+  '--glitch-enabled': '0',
+}

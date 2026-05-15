@@ -1,0 +1,13 @@
+{
+  "name": "Zuki-OS",
+  "short_name": "Zuki",
+  "description": "Personal operating center — High Tech, Low Life",
+  "theme_color": "#0A0C10",
+  "background_color": "#0A0C10",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

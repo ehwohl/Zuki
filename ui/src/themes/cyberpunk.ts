@@ -1,0 +1,16 @@
+export const cyberpunk: Record<string, string> = {
+  '--bg-base': '#0A0C10',
+  '--bg-panel': 'rgba(10,15,20,0.85)',
+  '--accent-primary': '#00F5FF',
+  '--accent-secondary': '#FF00A0',
+  '--accent-warning': '#FFB300',
+  '--text-primary': '#E8EAF0',
+  '--text-secondary': '#607080',
+  '--border-color': 'rgba(0,245,255,0.15)',
+  '--glow-primary': '0 0 8px rgba(0,245,255,0.4)',
+  '--glow-secondary': '0 0 8px rgba(255,0,160,0.4)',
+  '--color-up': '#00C896',
+  '--color-down': '#FF3B5C',
+  '--grain-opacity': '0.04',
+  '--glitch-enabled': '1',
+}

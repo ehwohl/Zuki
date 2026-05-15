@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens: Cyberpunk defaults (overridden by applyTheme()) ── */
+:root {
+  --bg-base: #0A0C10;
+  --bg-panel: rgba(10, 15, 20, 0.85);
+  --accent-primary: #00F5FF;
+  --accent-secondary: #FF00A0;
+  --accent-warning: #FFB300;
+  --text-primary: #E8EAF0;
+  --text-secondary: #607080;
+  --border-color: rgba(0, 245, 255, 0.15);
+  --glow-primary: 0 0 8px rgba(0, 245, 255, 0.4);
+  --glow-secondary: 0 0 8px rgba(255, 0, 160, 0.4);
+  --color-up: #00C896;
+  --color-down: #FF3B5C;
+  --grain-opacity: 0.04;
+  --glitch-enabled: 1;
+  --pulse-intensity: 0;
+  --transition-fast: 150ms;
+  --transition-mid: 200ms;
+  --easing-snap: cubic-bezier(0.16, 1, 0.3, 1);
+  --easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Global ── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Chakra Petch', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ── PWA drag region ── */
+.drag-region       { -webkit-app-region: drag; app-region: drag; }
+.no-drag           { -webkit-app-region: no-drag; app-region: no-drag; }
+
+/* ── Scan-line overlay ── */
+.scanlines::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.04) 2px,
+    rgba(0, 0, 0, 0.04) 4px
+  );
+  pointer-events: none;
+  z-index: 9997;
+}
+
+/* ── Glitch workspace transition ── */
+@keyframes glitch-body {
+  0%   { filter: brightness(1); transform: none; clip-path: inset(0 0 0 0); }
+  8%   { filter: brightness(3) saturate(0); clip-path: inset(32% 0 22% 0); transform: translateX(6px) skewX(0.8deg); }
+  16%  { clip-path: inset(62% 0 6% 0); transform: translateX(-6px) skewX(-0.8deg); filter: brightness(2) hue-rotate(90deg); }
+  24%  { clip-path: inset(12% 0 48% 0); transform: translateX(4px); filter: brightness(1.6) hue-rotate(180deg) saturate(1.5); }
+  32%  { clip-path: inset(0 0 0 0); transform: none; filter: brightness(1.1) hue-rotate(270deg); }
+  40%  { clip-path: inset(44% 0 28% 0); transform: translateX(8px); filter: brightness(2.5); }
+  48%  { clip-path: inset(0 0 0 0); transform: translateX(-3px); filter: brightness(1.2); }
+  60%  { transform: skewX(0.4deg); filter: brightness(1.05) hue-rotate(30deg); }
+  80%  { transform: none; filter: brightness(1); }
+  100% { transform: none; filter: brightness(1); clip-path: inset(0 0 0 0); }
+}
+
+@keyframes glitch-body-disabled {
+  0%   { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+.workspace-glitch {
+  animation: var(--glitch-enabled, 1)
+    /* conditional: JS sets --glitch-enabled */;
+}
+
+.workspace-glitch[data-glitch="1"] {
+  animation: glitch-body 350ms steps(4) forwards;
+}
+
+.workspace-glitch[data-glitch="0"] {
+  animation: glitch-body-disabled 150ms ease-out forwards;
+}
+
+/* ── Glow pulse (driven by --pulse-intensity via WebSocket) ── */
+.pulse-border {
+  box-shadow: 0 0 calc(8px + 16px * var(--pulse-intensity))
+    rgba(0, 245, 255, calc(0.3 + 0.5 * var(--pulse-intensity)));
+  transition: box-shadow 33ms linear;
+}
+
+/* ── Panel ── */
+.panel-glass {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+  box-shadow: var(--glow-primary);
+  backdrop-filter: blur(8px);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 245, 255, 0.3); }
+
+/* ── Terminal text ── */
+.terminal {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+/* ── Presentation mode overrides ── */
+.presentation-mode .panel-glass {
+  border-color: rgba(0, 245, 255, 0.2);
+  box-shadow: 0 0 12px rgba(0, 245, 255, 0.3);
+}
