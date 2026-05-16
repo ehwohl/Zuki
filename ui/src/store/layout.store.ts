@@ -24,7 +24,7 @@ interface LayoutStore {
 
 const storageKey = (id: string) => `zuki:layout:${id}`
 const VERSION_KEY = 'zuki:layout:version'
-const ALL_WORKSPACES = ['broker', 'business', 'coding', 'os', 'office']
+const ALL_WORKSPACES = ['broker', 'business', 'coding', 'os', 'office', 'music']
 
 export const useLayoutStore = create<LayoutStore>((set, get) => ({
   panels: {},

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type WorkspaceId = 'broker' | 'business' | 'coding' | 'os' | 'office'
+export type WorkspaceId = 'broker' | 'business' | 'coding' | 'os' | 'office' | 'music'
 export type NeuralMapMode = 'routing' | 'provenance' | 'business'
 export type AvatarRenderer = 'vrm' | 'live2d'
 
@@ -20,6 +20,7 @@ const NEURAL_MAP_MODES: Record<WorkspaceId, NeuralMapMode> = {
   coding:   'provenance',
   os:       'routing',
   office:   'routing',
+  music:    'provenance',
 }
 
 export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
