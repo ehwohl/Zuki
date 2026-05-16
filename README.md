@@ -1,35 +1,62 @@
 # Zuki
 
-Personal AI assistant and business intelligence tool — voice, vision, broker data, and field analysis.
-Runs on Windows today; Linux migration path (Pop!_OS / Ubuntu 24.04) is built in.
+Personal AI assistant — a local Python core with a React PWA shell. Zuki lives on your PC, speaks German, controls windows, remembers context across sessions, and routes tasks to skill-specific workspaces.
+
+Not a SaaS. Not multi-user. One machine, one principal.
+
+---
+
+## What it does
+
+- **Natural language interface** — type or speak; Zuki routes to the right skill automatically via two-stage routing (exact trigger → LLM router)
+- **Voice I/O** — Whisper STT + platform-native TTS (pyttsx3/SAPI5 on Windows, Piper stub for Linux)
+- **Cloud memory** — persists facts, bio, and skill conversations in Vercel KV/Redis; offline outbox buffers writes when cloud is unavailable
+- **Multi-tenant isolation** — private data (`self`) and client data (`client-xyz`) are strictly separated; DSGVO-aware provider selection per tenant
+- **Provider-agnostic LLM** — Gemini, Claude, OpenAI switchable via `APIManager`; no vendor lock-in
+- **Window control** — focus, resize, and switch apps via Win32 (Linux stubs ready for `xdotool`/`wmctrl`)
+- **React UI shell** — browser-based dashboard with resizable panels, terminal log, neural map, VRM avatar, and workspace views
+
+---
+
+## Skill Workspaces
+
+| Workspace | What it does |
+|-----------|-------------|
+| **Professor** | Structured explanations (`explain <topic>`) |
+| **Broker** | News inbox, watchlist, n8n webhook receiver for market data ingestion |
+| **Business** | Gastro analyzer — competitor mapping, weakness detection, PDF report for client meetings |
+| **Coding** | Monaco editor panel + sandboxed code buffer (Python, JS, TS, Bash, Go) |
+| **Office** | Google Drive indexer, OCR document classifier (`explain me all 2025 tax docs`) |
+| **Music** | Real-time pitch detection, chromatic tuner, session log (AudioWorklet + pitchfinder) |
+| **OS** | PC control, window management, voice config |
 
 ---
 
 ## Quick Start
 
-### Python Backend (terminal + voice)
+### Python backend
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env   # fill in your API keys
+cp .env.example .env   # fill in API keys
 python core/main.py
 ```
 
-### Zuki-OS Shell (full UI)
+### Zuki-OS Shell (React UI)
 
-Double-click **`zuki_start.bat`** from the project root.
-
-This opens three things in parallel:
-- A terminal window running the Vite dev server (`http://localhost:5173`)
-- A terminal window running the Python WebSocket bridge (`ws://localhost:8765`)
-- Your default browser pointed at the UI
-
-> Requires Node.js installed. Run `npm install` inside `ui/` once before first launch.
-
-```powershell
+```bash
 cd ui
 npm install      # first time only
+npm run dev      # http://localhost:5173
 ```
+
+Then start the WebSocket bridge in a second terminal:
+
+```bash
+python ui_bridge.py  # ws://localhost:8765
+```
+
+Or use **`zuki_start.bat`** at the project root to launch all three at once.
 
 ---
 
@@ -38,10 +65,12 @@ npm install      # first time only
 | Key | Action |
 |---|---|
 | `Ctrl+Space` | Open floating command input |
-| `Alt+1` | Broker workspace (War Room) |
-| `Alt+2` | Business workspace (Field Intelligence) |
-| `Alt+3` | Coding workspace (Circuit Board) |
-| `Alt+4` | OS Layer workspace (System Core) |
+| `Alt+1` | Broker workspace |
+| `Alt+2` | Business workspace |
+| `Alt+3` | Coding workspace |
+| `Alt+4` | OS Layer workspace |
+| `Alt+5` | Office workspace |
+| `Alt+6` | Music workspace |
 | `Alt+P` | Toggle presentation mode |
 | `Alt+A` | Collapse / expand Avatar panel |
 | `Alt+N` | Collapse / expand Neural Map panel |
@@ -51,57 +80,55 @@ npm install      # first time only
 ## Folder Structure
 
 ```
-d:\Zuki\
-├── core/                        # Python backend core
-│   ├── main.py                  # Entry point — main loop
-│   ├── llm_manager.py           # Chat loop LLM (Gemini primary)
-│   ├── api_manager.py           # Multi-provider API (all skills use this)
+Zuki/
+├── core/                        # Python backend
+│   ├── main.py                  # Entry point — main loop + command dispatch
+│   ├── api_manager.py           # Multi-provider LLM (Gemini/Claude/OpenAI)
 │   ├── router_agent.py          # Two-stage skill routing
-│   ├── ui.py / ui_renderer.py   # Terminal renderer (UIRenderer ABC)
-│   ├── speech_to_text/          # Whisper STT
-│   └── text_to_speech/          # pyttsx3/SAPI5 (Windows), Piper stub (Linux)
+│   ├── tenant.py                # TenantManager + DSGVO-aware provider selection
+│   ├── ui.py / ui_renderer.py   # TerminalRenderer (UIRenderer ABC)
+│   ├── speech_to_text/          # Whisper STT engine
+│   └── text_to_speech/          # TTSBackend ABC → WindowsTTS / LinuxTTS (stub)
 │
-├── workspaces/                  # Python skill workspaces
-│   ├── broker/                  # News, watchlist, market reports
-│   ├── business/                # Gastro analysis, PDF reports, interviews
-│   ├── coding/                  # Code buffer, scratchpad
-│   ├── os/                      # Voice, window control, system tests
-│   └── professor/               # Teaching / explanation skill
+├── workspaces/                  # Skill workspaces (auto-discovered)
+│   ├── broker/                  # News inbox, watchlist, webhook receiver
+│   ├── business/                # Gastro analyzer, PDF reports, CRM
+│   ├── coding/                  # Code buffer, Monaco integration
+│   ├── music/                   # Pitch detection, tuner, session log
+│   ├── office/                  # Drive indexer, OCR classifier
+│   ├── os/                      # Window control, voice settings
+│   └── professor/               # Structured explanation skill
 │
-├── ui/                          # Zuki-OS Shell — React PWA (Bundle 13)
-│   ├── src/
-│   │   ├── bridge/              # WebSocket client (ws.ts)
-│   │   ├── components/
-│   │   │   ├── AvatarPanel/     # Three.js + @pixiv/three-vrm
-│   │   │   ├── NeuralMapPanel/  # D3 v7 force-directed graph
-│   │   │   └── CommandInput/    # Floating palette (Framer Motion)
-│   │   ├── panels/              # Panel system — drag, resize, persist
-│   │   ├── store/               # Zustand stores (workspace, layout, ui, ws)
-│   │   ├── themes/              # CSS token definitions (cyberpunk/minimal/presentation)
-│   │   └── workspaces/          # Workspace views (broker, business, coding, os)
-│   ├── package.json
-│   └── vite.config.ts
+├── ui/                          # React PWA (Vite + TypeScript + Tailwind)
+│   └── src/
+│       ├── bridge/              # WebSocket client (ws.ts)
+│       ├── components/
+│       │   ├── AvatarPanel/     # Three.js + @pixiv/three-vrm
+│       │   ├── NeuralMapPanel/  # D3 v7 force-directed graph
+│       │   └── Terminal/        # Persistent scrollable command log
+│       ├── panels/              # Panel system — drag, resize, layout presets
+│       ├── store/               # Zustand stores
+│       └── workspaces/          # Workspace views per skill
 │
-├── ui_bridge.py                 # Python asyncio WebSocket server (port 8765)
-│                                # Bridges frontend commands → Python backend
+├── tools/                       # Shared utilities
+│   ├── cloud_memory.py          # Vercel KV client + offline outbox
+│   ├── backup_manager.py        # Local snapshots (7-rotation, 6h auto)
+│   ├── github_backup.py         # Off-site code backup (auto-commit thread)
+│   ├── instance_guard.py        # Single-instance lock via socket
+│   ├── session_state.py         # Crash detection + recovery
+│   ├── system_test.py           # 14-subsystem self-diagnostic
+│   └── window_control/          # WindowBackend ABC → Win32 / xdotool stub
 │
-├── tools/                       # Shared Python utilities
-│   ├── cloud_memory.py          # Vercel KV client
-│   ├── window_control/          # wmctrl / win32gui backends
-│   └── scraper.py               # Web scraping layer
+├── zuki_cloud/                  # Vercel serverless API (Flask + Redis)
+├── memory/                      # Chat history + user profiles (per tenant)
+├── knowledge/                   # Industry YAML knowledge bases
+├── docs/                        # RECOVERY.md, MIGRATION.md
+├── logs/                        # zuki.log, error.log (gitignored)
+├── backups/                     # Local snapshots (gitignored)
+├── temp/                        # Vision frames, cloud outbox (gitignored)
 │
-├── knowledge/                   # Industry YAML knowledge bases (lazy-loaded)
-├── zuki_cloud/                  # Vercel serverless API + Redis KV
-├── memory/                      # User profile + conversation history
-├── logs/                        # zuki.log, error.log
-├── temp/                        # Reports, cache, vision captures (gitignored)
-│
-├── zuki_start.bat               # One-click launcher (UI dev server + bridge + browser)
-├── Zuki_starten.bat             # Python-only terminal launcher
-├── PRODUCT.md                   # UI product contract (Bundle 13+)
-├── DESIGN.md                    # Design system — tokens, typography, motion
-├── REFERENCES.md                # Architecture decisions, roadmap, tech debt
-├── CLAUDE.md                    # Workspace routing map for AI assistants
+├── ui_bridge.py                 # asyncio WebSocket bridge (port 8765)
+├── PERSONA.md                   # Zuki identity — loaded as system prompt
 └── .env                         # Secrets — never committed
 ```
 
@@ -110,43 +137,109 @@ d:\Zuki\
 ## Stack
 
 ### Python Backend
+
 | Layer | Technology |
 |---|---|
-| Language | Python 3.14 |
-| LLM | Gemini 1.5 Flash (primary), Claude, GPT via `APIManager` |
-| STT | Whisper (local) |
-| TTS | pyttsx3 / SAPI5 (Windows) · Piper stub (Linux) |
-| Cloud | Vercel Serverless + Redis KV (`zuki_cloud/`) |
+| Language | Python 3.11+ |
+| LLM | Gemini (primary), Claude, OpenAI via `APIManager` |
+| STT | Whisper (local, on-demand load) |
+| TTS | pyttsx3/SAPI5 (Windows) · Piper stub (Linux) |
+| Cloud | Vercel Serverless + Redis KV |
 
-### Zuki-OS Shell (Bundle 13)
+### React UI
+
 | Layer | Technology |
 |---|---|
 | Framework | React 18 + TypeScript (strict) |
 | Build | Vite 5 + PWA plugin |
-| Styling | Tailwind CSS (layout only) + CSS custom properties (all tokens) |
-| State | Zustand — no Redux, no Context |
-| 3D | Three.js + `@pixiv/three-vrm` (Avatar) |
-| Graph | D3 v7 + TopoJSON (Neural Map + World Map) |
-| Motion | Framer Motion (command input only) |
-| IPC | WebSocket (`ui_bridge.py` ↔ `ui/src/bridge/ws.ts`) |
+| Styling | Tailwind CSS (layout) + CSS custom properties (all tokens) |
+| State | Zustand — no Redux, no Context API |
+| 3D | Three.js + `@pixiv/three-vrm` (Avatar panel) |
+| Graph | D3 v7 + TopoJSON (Neural Map, World Map) |
+| Editor | Monaco Editor (Coding workspace) |
+| Audio | Web Audio API + AudioWorklet (Music workspace) |
+| Motion | Framer Motion (command input) |
+| IPC | WebSocket (`ui_bridge.py` ↔ `ws.ts`) |
 
 ---
 
-## Key Files
+## Environment Variables (`.env`)
 
-| File | Purpose |
-|---|---|
-| `PERSONA.md` | Zuki's identity and character — loaded as system prompt |
-| `CLAUDE.md` | Workspace routing map for AI assistants |
-| `REFERENCES.md` | Architecture decisions, naming conventions, tech debt, roadmap |
-| `PRODUCT.md` | UI product contract — scope, constraints, WebSocket protocol |
-| `DESIGN.md` | Design system — color tokens, typography, motion, aesthetic rules |
-| `.env` | Secrets and tunables — never committed |
+```
+# LLM providers
+GEMINI_API_KEY=
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+
+# Cloud memory (Vercel KV)
+REDIS_URL=redis://...
+ZUKI_CLOUD_URL=https://your-deployment.vercel.app
+ZUKI_TOKEN=
+
+# GitHub off-site backup
+GITHUB_TOKEN=
+GITHUB_REPO=username/zuki-backup
+
+# UI renderer: terminal | web
+ZUKI_UI=terminal
+```
+
+---
+
+## Architecture Highlights
+
+**Two-stage skill routing**
+
+```
+User input
+  → Stage 1: exact trigger match  (0 tokens, microseconds)
+  → Stage 2: RouterAgent LLM call (~80 token output, ~1-2s)
+  → Skill.handle()
+```
+Skills without a `description` field are invisible to the router.
+
+**Multi-tenant isolation**
+- Cloud keys: `zuki:memories:{tenant}`, `zuki:audit:{tenant}`
+- Profile files: `memory/user_profile_{tenant}.txt`
+- `require_dsgvo = True` blocks non-compliant providers (e.g. Gemini Free) for client tenants
+
+**Platform backends (ABC pattern)**
+- TTS: `TTSBackend` → `WindowsTTS` (live) / `LinuxTTS` (Piper stub)
+- Window control: `WindowBackend` → `WindowsWindowBackend` (live) / `LinuxWindowBackend` (stub)
+- Linux migration touches only the two stub files — core is untouched
+
+**Cloud memory is simulation-independent**
+- `cloud.save()` is never gated by LLM simulation mode
+- Offline writes buffer to `temp/cloud_outbox.jsonl` and flush on reconnect
+
+---
+
+## System Test
+
+```bash
+python -c "
+import sys; sys.path.insert(0, '.')
+from tools.system_test import SystemTest
+SystemTest().run_all()
+"
+```
+
+Covers 14 subsystems: cloud connectivity, GitHub backup, `.env` leak detection, TTS, STT, tenant isolation, and more.
 
 ---
 
 ## Security
 
-`.env` is gitignored. `system test github` actively verifies it is never committed.
-No secrets in code — all credentials loaded via `python-dotenv`.
-Three-layer backup: GitHub auto-commit (6h) · local `backups/` snapshots · Vercel KV cloud memory.
+- `.env` is gitignored; `system test github` actively verifies it was never committed
+- All credentials loaded via `python-dotenv` — nothing hardcoded
+- Three-layer backup: GitHub auto-commit (6h) · local `backups/` snapshots (7-rotation) · Vercel KV cloud memory
+
+---
+
+## Planned
+
+- Hotword detection (Picovoice Porcupine — `"Zuki, ..."`)
+- n8n as data ingestion layer (polls APIs, fires webhooks to `broker/webhook_receiver.py`)
+- Linux migration (Pop!_OS or Ubuntu 24.04 LTS)
+- 3D VRM avatar with TTS lip-sync amplitude
+- Streaming skill (Twitch integration)
