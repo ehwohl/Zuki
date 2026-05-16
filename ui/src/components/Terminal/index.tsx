@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useUIStore } from '../../store/ui.store'
-import { useWSStore } from '../../store/ws.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { bridge } from '../../bridge/ws'
 import { MessageRow } from './MessageRow'
@@ -18,7 +17,6 @@ export default function TerminalContent() {
   const terminalInject = useUIStore((s) => s.terminalInject)
   const setTerminalInject = useUIStore((s) => s.setTerminalInject)
 
-  const lastMessage = useWSStore((s) => s.lastMessage)
   const active = useWorkspaceStore((s) => s.active)
 
   const [input, setInput] = useState('')
@@ -40,14 +38,6 @@ export default function TerminalContent() {
     setTerminalInject(null)
     inputRef.current?.focus()
   }, [terminalInject, setTerminalInject])
-
-  // Append Zuki responses from WebSocket
-  useEffect(() => {
-    if (!lastMessage || lastMessage.type !== 'response') return
-    const text = (lastMessage.text as string) ?? ''
-    if (!text) return
-    addMessage('zuki', text, activeRef.current)
-  }, [lastMessage, addMessage])
 
   const submit = () => {
     const text = input.trim()

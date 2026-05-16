@@ -30,6 +30,7 @@ from pathlib import Path
 from core.logger import get_logger
 from workspaces.base import Skill
 from workspaces.office import drive_client, indexer
+import ui_bridge
 
 log = get_logger("office.skill")
 
@@ -95,6 +96,43 @@ class OfficeSkill(Skill):
     )
     tenant_aware = True
 
+    # ── Bridge helpers ────────────────────────────────────────────────────────
+
+    def _emit_status(self) -> None:
+        """Broadcast current index state + Drive auth status to the UI."""
+        try:
+            indexer.init_db()
+            count = indexer.file_count()
+            cats  = indexer.category_counts()
+            categories = [{"label": k, "count": v} for k, v in cats.items()]
+
+            drive_status = drive_client.get_status()
+            auth_ready   = bool(drive_status.get("ready"))
+            creds_exist  = bool(drive_status.get("credentials_exist"))
+
+            # Recent reports: last 5 PDFs in temp/business_reports/
+            reports = []
+            if _REPORT_DIR.exists():
+                pdfs = sorted(
+                    _REPORT_DIR.glob("*.pdf"),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )[:5]
+                for p in pdfs:
+                    from datetime import datetime
+                    ts = datetime.fromtimestamp(p.stat().st_mtime).strftime("%d.%m. %H:%M")
+                    reports.append({"name": p.name, "path": str(p), "ts": ts})
+
+            ui_bridge.emit_office_status(
+                total=count,
+                categories=categories,
+                auth_ready=auth_ready,
+                credentials_exist=creds_exist,
+                recent_reports=reports,
+            )
+        except Exception as exc:
+            log.warning("[OFFICE-SKILL] _emit_status fehlgeschlagen: %s", exc)
+
     # ── Dispatch ──────────────────────────────────────────────────────────────
 
     def handle(self, context: dict) -> str | None:
@@ -121,9 +159,17 @@ class OfficeSkill(Skill):
             client = sub[6:].strip()
             return self._brief(client, api_mgr)
 
+        if sub == "auth reset":
+            return self._auth_reset()
+
+        if sub == "auth":
+            return self._auth_status()
+
         return (
             "Büro-Befehle:\n"
             "  büro                  → Status\n"
+            "  büro auth             → OAuth-Status anzeigen\n"
+            "  büro auth reset       → Token löschen, OAuth neu starten\n"
             "  büro index            → Drive neu einlesen\n"
             "  büro suche <Begriff>  → Datei suchen\n"
             "  büro brief <Kunde>    → Kundendossier\n"
@@ -136,6 +182,7 @@ class OfficeSkill(Skill):
         indexer.init_db()
         count  = indexer.file_count()
         cats   = indexer.category_counts()
+        self._emit_status()
 
         if count == 0:
             return (
@@ -185,6 +232,7 @@ class OfficeSkill(Skill):
             indexed += 1
 
         log.info("[OFFICE-SKILL] Index neu aufgebaut: %d Dateien", indexed)
+        self._emit_status()
         return f"Index aktualisiert: {indexed} Dateien eingelesen."
 
     # ── Search ────────────────────────────────────────────────────────────────
@@ -198,6 +246,19 @@ class OfficeSkill(Skill):
 
         if not results:
             return f"Keine Dateien gefunden für: {query}"
+
+        ui_bridge.emit_office_search_results(
+            query=query,
+            results=[
+                {
+                    "name":     r["name"],
+                    "category": r.get("category", ""),
+                    "client":   r.get("client", ""),
+                    "web_link": r.get("web_link", ""),
+                }
+                for r in results
+            ],
+        )
 
         lines = [f"{len(results)} Ergebnis(se) für '{query}':"]
         for r in results:
@@ -240,6 +301,50 @@ class OfficeSkill(Skill):
 
         return f"Dossier: {client} ({len(files)} Dokumente)\n\n{summary}\n\nDateien:\n{file_list}"
 
+    # ── Auth status / reset ───────────────────────────────────────────────────
+
+    def _auth_status(self) -> str:
+        s = drive_client.get_status()
+        lines = ["Google Drive — OAuth Status"]
+        lines.append(f"  Credentials-Datei : {s['credentials_file']}")
+        lines.append(f"  Datei vorhanden   : {'ja' if s['credentials_exist'] else 'NEIN — fehlt!'}")
+        lines.append(f"  Token gecacht     : {'ja' if s['token_cached'] else 'nein'}")
+
+        if s["token_cached"]:
+            if s.get("error"):
+                lines.append(f"  Token-Fehler      : {s['error']}")
+            else:
+                lines.append(f"  Token gültig      : {'ja' if s['token_valid'] else 'nein'}")
+                lines.append(f"  Token abgelaufen  : {'ja' if s['token_expired'] else 'nein'}")
+                lines.append(f"  Refresh-Token     : {'vorhanden' if s['has_refresh_token'] else 'fehlt!'}")
+                lines.append(f"  Ablauf            : {s['expiry'] or 'unbekannt'}")
+                lines.append(f"  Bereit            : {'ja' if s['ready'] else 'NEIN'}")
+
+        if not s["credentials_exist"]:
+            lines.append(
+                "\nCredentials fehlen!\n"
+                "Download: Google Cloud Console → APIs & Dienste → Zugangsdaten → OAuth 2.0-Client-IDs\n"
+                f"Speichern als: {s['credentials_file']}"
+            )
+        elif not s["token_cached"]:
+            lines.append("\nKein Token vorhanden — starte: büro auth reset")
+        elif not s["ready"]:
+            lines.append("\nToken ungültig — starte: büro auth reset")
+
+        return "\n".join(lines)
+
+    def _auth_reset(self) -> str:
+        drive_client.reset_token()
+        log.info("[OFFICE-SKILL] Token zurückgesetzt via büro auth reset")
+        try:
+            drive_client.build_service()
+            return "OAuth-Flow abgeschlossen. Drive verbunden."
+        except FileNotFoundError as exc:
+            return f"Credentials-Datei fehlt:\n{exc}"
+        except Exception as exc:
+            log.error("[OFFICE-SKILL] OAuth-Reset fehlgeschlagen: %s", exc)
+            return f"OAuth-Flow fehlgeschlagen: {exc}"
+
     # ── Upload last report ────────────────────────────────────────────────────
 
     def _upload_report(self) -> str:
@@ -267,6 +372,7 @@ class OfficeSkill(Skill):
 
         link = drive_client.upload_file(svc, report, folder_id=target_folder_id)
         log.info("[OFFICE-SKILL] Report hochgeladen: %s", report.name)
+        self._emit_status()
 
         result = f"Report hochgeladen: {report.name}"
         if client:

@@ -1,6 +1,8 @@
 import { useWSStore } from '../store/ws.store'
 import { useUIStore } from '../store/ui.store'
 import { useWorkspaceStore, type WorkspaceId } from '../store/workspace.store'
+import { useTerminalStore } from '../store/terminal.store'
+import { useNeuralStore } from '../store/neural.store'
 
 const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8765'
 const MAX_RECONNECT_MS = 30_000
@@ -79,6 +81,14 @@ class ZukiBridge {
 
   private dispatch(msg: { type: string; [k: string]: unknown }) {
     switch (msg.type) {
+      case 'response': {
+        const text = (msg.text as string) ?? ''
+        if (text) {
+          const workspace = useWorkspaceStore.getState().active
+          useTerminalStore.getState().addMessage('zuki', text, workspace)
+        }
+        break
+      }
       case 'tts_amplitude':
         document.documentElement.style.setProperty(
           '--pulse-intensity',
@@ -92,6 +102,17 @@ class ZukiBridge {
         if (msg.active !== useUIStore.getState().presentationMode) {
           useUIStore.getState().togglePresentationMode()
         }
+        break
+      case 'neural_map_task':
+        useNeuralStore.getState().addTask(
+          msg.task_id as string,
+          msg.nodes as string[],
+          (msg.ttl as number) ?? 4,
+        )
+        break
+      case 'neural_map_clear':
+        if (msg.task_id) useNeuralStore.getState().clearTask(msg.task_id as string)
+        else useNeuralStore.getState().clearAll()
         break
     }
   }

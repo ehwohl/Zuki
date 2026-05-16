@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { LAYOUT_VERSION } from '../panels/layout_presets'
 
 export interface PanelState {
   id: string
@@ -22,6 +23,8 @@ interface LayoutStore {
 }
 
 const storageKey = (id: string) => `zuki:layout:${id}`
+const VERSION_KEY = 'zuki:layout:version'
+const ALL_WORKSPACES = ['broker', 'business', 'coding', 'os', 'office']
 
 export const useLayoutStore = create<LayoutStore>((set, get) => ({
   panels: {},
@@ -45,6 +48,15 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
     set({ panels: Object.fromEntries(preset.map((p) => [p.id, p])) }),
 
   loadFromStorage: (workspaceId, preset) => {
+    // When layout geometry changes (LAYOUT_VERSION bump), wipe all saved positions
+    // so the new presets take effect immediately rather than being overridden.
+    if (localStorage.getItem(VERSION_KEY) !== String(LAYOUT_VERSION)) {
+      ALL_WORKSPACES.forEach((ws) => localStorage.removeItem(storageKey(ws)))
+      localStorage.setItem(VERSION_KEY, String(LAYOUT_VERSION))
+      get().loadPreset(preset)
+      return
+    }
+
     try {
       const raw = localStorage.getItem(storageKey(workspaceId))
       if (raw) {
@@ -52,8 +64,6 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
         if (Array.isArray(parsed) && parsed.length > 0) {
           // Preset is the source of truth for which panels exist.
           // Stored positions override defaults only for panels already in the preset.
-          // This ensures panels added to the preset after a workspace was saved
-          // (e.g. the Terminal) always appear rather than being silently dropped.
           const storedById = Object.fromEntries(parsed.map((p) => [p.id, p]))
           const merged = preset.map((p) => storedById[p.id] ?? p)
           set({ panels: Object.fromEntries(merged.map((p) => [p.id, p])) })

@@ -23,7 +23,12 @@ log = get_logger("office.drive")
 
 _ROOT       = Path(__file__).resolve().parent.parent.parent
 _TOKEN_FILE = _ROOT / "memory" / "office_token.json"
-_CREDS_FILE = Path(os.getenv("GOOGLE_CREDENTIALS_FILE", str(_ROOT / "credentials.json")))
+
+_raw_creds  = os.getenv("GOOGLE_CREDENTIALS_FILE", "")
+_CREDS_FILE = (
+    Path(_raw_creds) if (_raw_creds and Path(_raw_creds).is_absolute())
+    else _ROOT / (_raw_creds or "credentials.json")
+)
 
 _SCOPES = [
     "https://www.googleapis.com/auth/drive.readonly",
@@ -146,6 +151,43 @@ def find_or_create_folder(service, name: str, parent_id: str = "root") -> str:
     ).execute()
     log.info("[DRIVE] Ordner erstellt: '%s' (parent=%s)", name, parent_id)
     return folder["id"]
+
+
+def get_status() -> dict:
+    """Return auth state dict for `büro auth` and system test."""
+    status: dict = {
+        "backend":            "google_drive",
+        "platform":           "all",
+        "credentials_file":   str(_CREDS_FILE),
+        "credentials_exist":  _CREDS_FILE.exists(),
+        "token_file":         str(_TOKEN_FILE),
+        "token_cached":       _TOKEN_FILE.exists(),
+        "ready":              False,
+        "token_valid":        False,
+        "token_expired":      None,
+        "expiry":             None,
+        "has_refresh_token":  False,
+    }
+    if not _TOKEN_FILE.exists():
+        return status
+    try:
+        from google.oauth2.credentials import Credentials
+        creds = Credentials.from_authorized_user_file(str(_TOKEN_FILE), _SCOPES)
+        status["token_valid"]       = creds.valid
+        status["token_expired"]     = creds.expired
+        status["has_refresh_token"] = bool(creds.refresh_token)
+        status["expiry"]            = creds.expiry.isoformat() if creds.expiry else None
+        status["ready"]             = creds.valid or (creds.expired and bool(creds.refresh_token))
+    except Exception as exc:
+        status["error"] = str(exc)
+    return status
+
+
+def reset_token() -> None:
+    """Delete the cached token so the next build_service() triggers a fresh OAuth flow."""
+    if _TOKEN_FILE.exists():
+        _TOKEN_FILE.unlink()
+        log.info("[DRIVE] Token gelöscht — nächste Verbindung startet OAuth-Flow")
 
 
 def upload_file(service, local_path: Path, folder_id: str, mime_type: str = "application/pdf") -> str:

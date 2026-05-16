@@ -28,8 +28,10 @@ log = get_logger("ui_factory")
 def _build_registry() -> dict:
     """Lazy-gebaut damit Imports nur bei Bedarf gezogen werden."""
     from core.ui import TerminalRenderer
+    from core.web_renderer import WebUIRenderer
     return {
         "terminal": TerminalRenderer,
+        "web":      WebUIRenderer,
     }
 
 

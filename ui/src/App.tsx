@@ -35,6 +35,7 @@ export function App() {
       if (e.altKey && e.key === '2') navigate('business')
       if (e.altKey && e.key === '3') navigate('coding')
       if (e.altKey && e.key === '4') navigate('os')
+      if (e.altKey && e.key === '5') navigate('office')
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)

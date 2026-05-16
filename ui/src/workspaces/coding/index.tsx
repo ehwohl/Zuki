@@ -3,6 +3,7 @@ import { Panel } from '../../panels/Panel'
 import { bridge } from '../../bridge/ws'
 import { useWSStore } from '../../store/ws.store'
 import DepGraph, { type DepNode, type DepEdge } from './DepGraph'
+import MonacoPanel from './MonacoPanel'
 
 interface CodeOutput {
   text: string
@@ -29,7 +30,7 @@ export default function CodingWorkspace() {
           hour: '2-digit', minute: '2-digit', second: '2-digit',
         }),
       }
-      setOutputs((prev) => [entry, ...prev.slice(0, 19)])
+      setOutputs((prev) => [entry, ...prev.slice(0, 49)])
     }
     if (lastMessage?.type === 'coding_dep_graph') {
       setDepNodes((lastMessage.nodes as DepNode[]) ?? [])
@@ -39,11 +40,11 @@ export default function CodingWorkspace() {
 
   return (
     <>
-      <Panel id="dep-graph" title="Circuit Board — Dependency Graph" noPad>
-        <DepGraph nodes={depNodes} edges={depEdges} />
+      <Panel id="monaco-editor" title="Code Editor" noPad>
+        <MonacoPanel />
       </Panel>
 
-      <Panel id="code-buffer" title="Code Buffer">
+      <Panel id="code-output" title="Output">
         {outputs.length > 0 ? (
           <div className="h-full overflow-y-auto space-y-3">
             {outputs.map((o, i) => (
@@ -64,9 +65,13 @@ export default function CodingWorkspace() {
           </div>
         ) : (
           <div className="font-mono text-xs text-[var(--text-secondary)] opacity-40">
-            # No active buffer — run: code python run
+            # No output yet — write code and press Ctrl+Enter or RUN
           </div>
         )}
+      </Panel>
+
+      <Panel id="dep-graph" title="Dependency Graph" noPad>
+        <DepGraph nodes={depNodes} edges={depEdges} />
       </Panel>
     </>
   )

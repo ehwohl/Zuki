@@ -109,6 +109,45 @@ def emit_coding_dep_graph(nodes: list[dict], edges: list[dict]) -> None:
     emit("coding_dep_graph", nodes=nodes, edges=edges)
 
 
+def emit_office_status(
+    total: int,
+    categories: list[dict],
+    auth_ready: bool,
+    credentials_exist: bool,
+    recent_reports: list[dict],
+) -> None:
+    emit(
+        "office_status",
+        total=total,
+        categories=categories,
+        auth_ready=auth_ready,
+        credentials_exist=credentials_exist,
+        recent_reports=recent_reports,
+    )
+
+
+def emit_office_search_results(query: str, results: list[dict]) -> None:
+    emit("office_search_results", query=query, results=results)
+
+
+def emit_business_reports(reports: list[dict]) -> None:
+    emit("business_reports", reports=reports)
+
+
+def emit_neural_map_task(task_id: str, nodes: list[str], ttl: float = 4.0) -> None:
+    """Highlight active task flow in the Neural Map.
+
+    nodes: list of node IDs involved — any link between two of these turns hot.
+    ttl:   seconds before the highlight auto-expires (safety net if clear is never called).
+    """
+    emit("neural_map_task", task_id=task_id, nodes=nodes, ttl=ttl)
+
+
+def emit_neural_map_clear(task_id: str = "") -> None:
+    """Remove a task highlight. Pass empty string to clear all active tasks."""
+    emit("neural_map_clear", task_id=task_id)
+
+
 # ── Internal ─────────────────────────────────────────────────────────────────
 
 def _run_loop() -> None:

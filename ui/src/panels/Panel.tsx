@@ -35,6 +35,7 @@ export function Panel({ id, title, children, className, headerExtra, noPad }: Pa
   const persist = useLayoutStore((s) => s.persistToStorage)
 
   const drag = useRef<DragState | null>(null)
+  const hasMoved = useRef(false)
   const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const debouncedPersist = useCallback(() => {
@@ -47,6 +48,7 @@ export function Panel({ id, title, children, className, headerExtra, noPad }: Pa
     (e: React.PointerEvent, kind: 'move' | 'resize', edge: ResizeEdge | '' = '') => {
       e.preventDefault()
       e.stopPropagation()
+      hasMoved.current = false
       bringToFront(id)
       drag.current = { kind, edge, x0: e.clientX, y0: e.clientY, px0: panel.x, py0: panel.y, w0: panel.w, h0: panel.h }
       ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
@@ -60,6 +62,8 @@ export function Panel({ id, title, children, className, headerExtra, noPad }: Pa
       if (!d) return
       const dx = e.clientX - d.x0
       const dy = e.clientY - d.y0
+
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) hasMoved.current = true
 
       if (d.kind === 'move') {
         update(id, { x: d.px0 + dx, y: d.py0 + dy })
@@ -86,16 +90,22 @@ export function Panel({ id, title, children, className, headerExtra, noPad }: Pa
 
   if (panel.collapsed) {
     return (
-      <button
-        className="absolute no-drag w-12 h-12 flex items-center justify-center panel-glass cursor-pointer hover:border-[var(--accent-primary)] transition-colors"
+      <div
+        className="absolute no-drag w-12 h-12 flex items-center justify-center panel-glass hover:border-[var(--accent-primary)] transition-colors cursor-grab active:cursor-grabbing select-none"
         style={{ left: panel.x, top: panel.y, zIndex: panel.zIndex }}
-        onClick={() => collapse(id)}
         title={`Expand ${title}`}
+        onPointerDown={(e) => startDrag(e, 'move')}
+        onPointerMove={onPointerMove}
+        onPointerUp={() => {
+          if (!hasMoved.current) collapse(id)
+          drag.current = null
+          debouncedPersist()
+        }}
       >
-        <span className="font-display text-xs text-[var(--accent-primary)] tracking-widest">
+        <span className="font-display text-xs text-[var(--accent-primary)] tracking-widest pointer-events-none">
           {title.slice(0, 2).toUpperCase()}
         </span>
-      </button>
+      </div>
     )
   }
 

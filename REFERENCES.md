@@ -145,11 +145,18 @@ Guard mode controlled by `SKILL_TENANT_GUARD=warn|auto|off` in `.env`.
   GitHub backup, tenant pattern, router agent, cleanup commands, platform agnosticism,
   web scraping layer, PDF reports, knowledge base, coding scratchpad, business skill MVP.
 
-### Active
-- **Bundle 13** — UI Foundation ✓ Shell scaffolded (`ui/` — Vite + React 18 + TS + Tailwind, WebSocket bridge, zustand, D3, Three.js). See `PRODUCT.md` and `DESIGN.md` for design contract. Next: Bundle 14 (Business 3D city + Coding dep graph).
+### Done (updated 2026-05-16)
+- Bundles 1–13 complete: resilience, backups, plugins, system tests, tenant pattern, router,
+  cleanup, platform agnosticism, scraping, PDF reports, knowledge base (gastro.yaml),
+  coding scratchpad, office skill (Drive + SQLite), business skill MVP, full UI shell
+  (Terminal, SkillSidebar, Avatar, Neural Map, 4 workspaces), n8n webhook receiver.
+- **Bundle 16** — Skill-Panels: Monaco Editor (Ctrl+Enter run) in coding workspace;
+  Office workspace (Alt+5) with Drive index stats, search panel, auth/reports panel;
+  Business Dashboard with SVG arc score gauge + report history panel.
+  ui_bridge: emit_office_status, emit_office_search_results, emit_business_reports.
 
 ### Next
-- **Bundle 10** — Office Skill + Google Drive (OAuth2, OCR, LLM classification, SQLite index)
+- **Bundle 11** — Music-Practice (pitch detection, instrument/vocal learning mode)
 
 ### Blocked
 - Bundle 17+ (Business full build) — blocked on praxis test with 5–10 real restaurants first.

@@ -388,6 +388,11 @@ def run():
     def _ui_command_handler(text: str, workspace: str, _tenant: str) -> None:
         _cmd = text.strip().lower()
 
+        # Interactive prompt intercept — if a skill (e.g. interview) is blocking on
+        # user_prompt(), feed the answer directly instead of routing through stages.
+        if callable(getattr(ui, 'feed_input', None)) and ui.feed_input(text):
+            return
+
         # Stage 1: exact trigger match
         _skill = skill_registry.get_skill_for(_cmd)
         if _skill:
@@ -476,6 +481,14 @@ def run():
             log.info("[SESSION-RESTORE] Auto-Save wiederhergestellt")
         log.info(f"[SESSION-RESTORE] Session wiederhergestellt | {_prev_state.get('timestamp', '')}")
         ui.system_msg("[SESSION] Letzte Session wiederhergestellt.")
+
+    # Web mode: the bridge handles all input — no stdin loop needed.
+    # Main thread sleeps so daemon threads stay alive.
+    if callable(getattr(ui, 'is_waiting_for_input', None)):
+        import threading as _threading
+        log.info("[MAIN] Web-Modus — Hauptschleife deaktiviert, Bridge übernimmt.")
+        _threading.Event().wait()
+        return
 
     while True:
         try:

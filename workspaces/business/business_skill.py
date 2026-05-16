@@ -150,6 +150,7 @@ class BusinessSkill(Skill):
             path        = build_analyse_report(output_path=output, **report_data)
             self._last_report_path = path
             log.info(f"[BUSINESS-SKILL] Report saved: {path}")
+            self._emit_reports()
             return f"PDF-Report erstellt:\n  {path}"
         except Exception as e:
             log.error(f"[BUSINESS-SKILL] Report error: {e}")
@@ -228,6 +229,7 @@ class BusinessSkill(Skill):
             self._last_report_path = path
             lines.append(f"\nWorkflow-Report gespeichert:\n  {path}")
             log.info(f"[BUSINESS-SKILL] Workflow report: {path}")
+            self._emit_reports()
         except Exception as e:
             log.warning(f"[BUSINESS-SKILL] Workflow report error: {e}")
             lines.append(f"\nReport-Erstellung fehlgeschlagen: {e}")
@@ -279,6 +281,28 @@ class BusinessSkill(Skill):
     def _get_ui():
         from core.ui_factory import get_renderer
         return get_renderer()
+
+    @staticmethod
+    def _emit_reports() -> None:
+        """Broadcast the current report history to the UI."""
+        try:
+            import ui_bridge
+            from datetime import datetime
+            reports = []
+            if _REPORT_DIR.exists():
+                pdfs = sorted(
+                    _REPORT_DIR.glob("*.pdf"),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )[:20]
+                for p in pdfs:
+                    ts    = datetime.fromtimestamp(p.stat().st_mtime).strftime("%d.%m.%Y %H:%M")
+                    stem  = p.stem.replace("_workflow", "")
+                    client = stem.replace("_", " ").title()
+                    reports.append({"name": p.name, "path": str(p), "ts": ts, "client": client})
+            ui_bridge.emit_business_reports(reports)
+        except Exception as exc:
+            log.warning("[BUSINESS-SKILL] _emit_reports fehlgeschlagen: %s", exc)
 
 
 def _build_city_buildings(result) -> list[dict]:

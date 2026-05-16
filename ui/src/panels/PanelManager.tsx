@@ -12,12 +12,14 @@ const BrokerWorkspace = lazy(() => import('../workspaces/broker'))
 const BusinessWorkspace = lazy(() => import('../workspaces/business'))
 const CodingWorkspace = lazy(() => import('../workspaces/coding'))
 const OSWorkspace = lazy(() => import('../workspaces/os'))
+const OfficeWorkspace = lazy(() => import('../workspaces/office'))
 
 const WORKSPACE_PANELS: Record<string, React.ComponentType> = {
   broker: BrokerWorkspace,
   business: BusinessWorkspace,
   coding: CodingWorkspace,
   os: OSWorkspace,
+  office: OfficeWorkspace,
 }
 
 function WSStatusDot() {
