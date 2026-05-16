@@ -31,6 +31,20 @@ _loop: asyncio.AbstractEventLoop | None = None
 # Callback called when a command arrives from the frontend
 _command_handler: Any = None
 
+# Callback called when a pitch_event arrives from the frontend (MusicSkill)
+_pitch_event_handler: Any = None
+
+
+def set_pitch_event_handler(handler) -> None:
+    """Register the handler that receives pitch_event WebSocket messages.
+
+    The handler is called with the full message dict:
+      { "type": "pitch_event", "note": "A4", "cents": -12, ... }
+    It runs in a thread-pool executor so it must be thread-safe.
+    """
+    global _pitch_event_handler
+    _pitch_event_handler = handler
+
 
 # ── Public API (called from Python main thread / skill threads) ──────────────
 
@@ -134,6 +148,24 @@ def emit_business_reports(reports: list[dict]) -> None:
     emit("business_reports", reports=reports)
 
 
+def emit_music_session(
+    note_count: int,
+    avg_cents_deviation: float,
+    time_active_seconds: int,
+    last_note: str,
+    session_started: str,
+) -> None:
+    """Broadcast music session statistics to all connected frontend clients."""
+    emit(
+        "music_session_stats",
+        note_count=note_count,
+        avg_cents_deviation=avg_cents_deviation,
+        time_active_seconds=time_active_seconds,
+        last_note=last_note,
+        session_started=session_started,
+    )
+
+
 def emit_neural_map_task(task_id: str, nodes: list[str], ttl: float = 4.0) -> None:
     """Highlight active task flow in the Neural Map.
 
@@ -206,6 +238,11 @@ async def _handle_message(ws: WebSocketServerProtocol, msg: dict) -> None:
             asyncio.get_event_loop().run_in_executor(
                 None, lambda: _on_navigate(workspace)
             )
+
+    elif msg_type == "pitch_event":
+        if _pitch_event_handler:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, _pitch_event_handler, msg)
 
     elif msg_type == "presentation_mode":
         active = msg.get("active", False)
