@@ -53,7 +53,7 @@ export function usePitchDetector(): void {
                 confidence: 1.0,
                 ts: now,
               }
-              bridge.send('pitch_event', payload as Record<string, unknown>)
+              bridge.send('pitch_event', payload as unknown as Record<string, unknown>)
             }
           }
         }
