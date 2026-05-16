@@ -3,7 +3,7 @@ import type { PanelState } from '../store/layout.store'
 export type WorkspacePreset = PanelState[]
 
 // Bump this when layout geometry changes — forces a reset of saved positions.
-export const LAYOUT_VERSION = 2
+export const LAYOUT_VERSION = 3
 
 function preset(W: number, H: number): Record<string, WorkspacePreset> {
   // Terminal — anchored to bottom centre, always visible above the fold
@@ -70,6 +70,13 @@ function preset(W: number, H: number): Record<string, WorkspacePreset> {
       AVATAR, NEURAL, TERMINAL,
       { id: 'terrain',      x: CX, y: 16,          w: CW, h: SAFE - 16 - 8 - 184, collapsed: false, zIndex: 5 },
       { id: 'process-list', x: CX, y: SAFE - 184,  w: CW, h: 184,                 collapsed: false, zIndex: 6 },
+    ],
+
+    music: [
+      AVATAR, NEURAL, TERMINAL,
+      { id: 'pitch-roll',   x: CX, y: 16,            w: CW, h: SAFE - 16,           collapsed: false, zIndex: 5 },
+      { id: 'tuner',        x: RX, y: NY,             w: RW, h: 160,                 collapsed: false, zIndex: 6 },
+      { id: 'session-log',  x: RX, y: NY + 160 + 8,  w: RW, h: Math.max(0, RH - 168), collapsed: false, zIndex: 6 },
     ],
   }
 }
