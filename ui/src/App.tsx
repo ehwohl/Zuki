@@ -4,7 +4,7 @@ import { useUIStore } from './store/ui.store'
 import { applyTheme } from './themes'
 import { bridge } from './bridge/ws'
 import { PanelManager } from './panels/PanelManager'
-import CommandInput from './components/CommandInput'
+import SkillSidebar from './components/SkillSidebar'
 import WindowControls from './components/WindowControls'
 
 export function App() {
@@ -12,21 +12,25 @@ export function App() {
   const isTransitioning = useWorkspaceStore((s) => s.isTransitioning)
   const endTransition = useWorkspaceStore((s) => s.endTransition)
   const presentationMode = useUIStore((s) => s.presentationMode)
-  const openCommandInput = useUIStore((s) => s.openCommandInput)
+  const focusTerminal = useUIStore((s) => s.focusTerminal)
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar)
   const togglePresentation = useUIStore((s) => s.togglePresentationMode)
   const navigate = useWorkspaceStore((s) => s.navigate)
 
   useEffect(() => { applyTheme(theme) }, [theme])
 
-  useEffect(() => { bridge.connect() }, [])
+  useEffect(() => {
+    bridge.connect()
+    return () => bridge.disconnect()
+  }, [])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.code === 'Space') { e.preventDefault(); openCommandInput() }
+      if (e.ctrlKey && e.code === 'Space') { e.preventDefault(); focusTerminal() }
+      if (e.ctrlKey && e.key === '\\') { e.preventDefault(); toggleSidebar() }
       if (e.altKey && e.key === 'p') { e.preventDefault(); togglePresentation() }
       if (e.altKey && e.key === 'a') { e.preventDefault() /* avatar collapse via store */ }
       if (e.altKey && e.key === 'n') { e.preventDefault() /* neural-map collapse via store */ }
-      // Workspace nav: Alt+1–4
       if (e.altKey && e.key === '1') navigate('broker')
       if (e.altKey && e.key === '2') navigate('business')
       if (e.altKey && e.key === '3') navigate('coding')
@@ -34,7 +38,7 @@ export function App() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [openCommandInput, togglePresentation, navigate])
+  }, [focusTerminal, toggleSidebar, togglePresentation, navigate])
 
   return (
     <div
@@ -47,7 +51,6 @@ export function App() {
         background: 'var(--bg-base)',
         fontFamily: '"Chakra Petch", sans-serif',
       }}
-      // Grain overlay via CSS var set by noise.ts
       onAnimationEnd={isTransitioning ? endTransition : undefined}
     >
       {/* Procedural grain overlay */}
@@ -59,6 +62,9 @@ export function App() {
           backgroundRepeat: 'repeat',
         }}
       />
+
+      {/* Skill sidebar — fixed, outside panel system, z-index 8 */}
+      <SkillSidebar />
 
       {/* Window controls — opacity 0, reveals on root hover */}
       {!presentationMode && <WindowControls />}
@@ -72,11 +78,8 @@ export function App() {
         </div>
       )}
 
-      {/* Panel system */}
+      {/* Panel system — includes persistent Terminal panel */}
       <PanelManager />
-
-      {/* Floating command palette */}
-      <CommandInput />
 
       {/* Glitch overlay — applies class when transitioning */}
       {isTransitioning && (

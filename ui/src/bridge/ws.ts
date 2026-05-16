@@ -11,7 +11,10 @@ class ZukiBridge {
   private retryTimer: ReturnType<typeof setTimeout> | null = null
 
   connect() {
-    if (this.ws?.readyState === WebSocket.OPEN) return
+    const s = this.ws?.readyState
+    // Guard both OPEN and CONNECTING — prevents duplicate sockets from StrictMode
+    // double-effect or rapid reconnect calls while the handshake is still in flight.
+    if (s === WebSocket.OPEN || s === WebSocket.CONNECTING) return
     useWSStore.getState().setStatus('connecting')
     try {
       this.ws = new WebSocket(WS_URL)
@@ -23,6 +26,21 @@ class ZukiBridge {
       useWSStore.getState().setStatus('error')
       this.scheduleRetry()
     }
+  }
+
+  disconnect() {
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer)
+      this.retryTimer = null
+    }
+    if (this.ws) {
+      // Null out onclose before closing so the retry loop doesn't fire on
+      // an intentional disconnect (e.g. StrictMode unmount/remount).
+      this.ws.onclose = null
+      this.ws.close()
+      this.ws = null
+    }
+    useWSStore.getState().setStatus('closed')
   }
 
   send(type: string, payload: Record<string, unknown> = {}) {

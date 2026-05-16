@@ -380,16 +380,70 @@ def run():
             "stt":       stt,
         }
 
-    # ── UI bridge command handler — routes React commands to skill dispatch ───
+    # ── UI bridge command handler — routes React terminal commands ────────────
+    # Mirrors the three-stage dispatch of the main loop:
+    #   1. Exact trigger match (0 LLM tokens)
+    #   2. Router agent (LLM routing, skipped in simulation mode)
+    #   3. LLM fallback (full conversation context)
     def _ui_command_handler(text: str, workspace: str, _tenant: str) -> None:
         _cmd = text.strip().lower()
+
+        # Stage 1: exact trigger match
         _skill = skill_registry.get_skill_for(_cmd)
         if _skill:
             _resp = _skill.handle(_make_context(text, _cmd))
             if _resp:
                 ui_bridge.emit_response(_resp, workspace=workspace)
-        else:
-            ui_bridge.emit_response(f"Kein Befehl erkannt: {text}", workspace=workspace)
+            return
+
+        # Stage 2: router agent
+        _routable = skill_registry.get_all_descriptions()
+        if _routable and not api_mgr.simulation:
+            try:
+                _chosen = router.route(text, _routable)
+                if _chosen:
+                    _responses = []
+                    for _sname in _chosen:
+                        _first_trigger = next(
+                            (s["triggers"][0] for s in _routable if s["name"] == _sname),
+                            _sname,
+                        )
+                        _sk = skill_registry.get_skill_for(_first_trigger)
+                        if _sk is None:
+                            _sk = next(
+                                (inst for inst in set(skill_registry._registry.values())
+                                 if inst.name == _sname),
+                                None,
+                            )
+                        if _sk:
+                            _r = _sk.handle(_make_context(text, _cmd))
+                            if _r:
+                                _responses.append(_r)
+                    if _responses:
+                        ui_bridge.emit_response("\n\n".join(_responses), workspace=workspace)
+                        return
+            except Exception as _e:
+                log.warning(f"[UI-CMD] Router-Fehler: {_e}")
+
+        # Stage 3: LLM fallback
+        try:
+            _ctx = history.get_context()
+            _summary = profile.get_summary()
+            if _summary:
+                _ctx = [
+                    {"role": "user",      "content": f"[Nutzerprofil] {_summary}"},
+                    {"role": "assistant", "content": "Verstanden, ich berücksichtige Ihr Profil."},
+                ] + _ctx
+            _ctx.append({"role": "user", "content": text})
+            _resp = llm.chat(_ctx)
+            if _resp:
+                ui_bridge.emit_response(_resp, workspace=workspace)
+        except Exception as _e:
+            log.error(f"[UI-CMD] LLM-Fehler: {_e}")
+            ui_bridge.emit_response(
+                "Fehler bei der Verarbeitung — Details: logs/zuki.log",
+                workspace=workspace,
+            )
 
     # ── Start WebSocket bridge ────────────────────────────────────────────────
     ui_bridge.start(command_handler=_ui_command_handler)

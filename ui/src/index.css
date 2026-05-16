@@ -119,6 +119,19 @@ body {
   line-height: 1.6;
 }
 
+/* ── Terminal panel — glow pulse driven by --pulse-intensity ── */
+.terminal-panel-outer .panel-glass {
+  box-shadow: 0 0 calc(8px + 16px * var(--pulse-intensity))
+    rgba(0, 245, 255, calc(0.3 + 0.5 * var(--pulse-intensity)));
+  transition: box-shadow 33ms linear;
+}
+
+/* ── Terminal input placeholder ── */
+.terminal-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.4;
+}
+
 /* ── Presentation mode overrides ── */
 .presentation-mode .panel-glass {
   border-color: rgba(0, 245, 255, 0.2);

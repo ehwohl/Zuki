@@ -1,11 +1,13 @@
 import { useEffect, lazy, Suspense } from 'react'
 import { useWorkspaceStore } from '../store/workspace.store'
 import { useLayoutStore } from '../store/layout.store'
+import { useWSStore } from '../store/ws.store'
 import { getPreset } from './layout_presets'
 import { Panel } from './Panel'
 
 const AvatarPanel = lazy(() => import('../components/AvatarPanel'))
 const NeuralMapPanel = lazy(() => import('../components/NeuralMapPanel'))
+const TerminalContent = lazy(() => import('../components/Terminal'))
 const BrokerWorkspace = lazy(() => import('../workspaces/broker'))
 const BusinessWorkspace = lazy(() => import('../workspaces/business'))
 const CodingWorkspace = lazy(() => import('../workspaces/coding'))
@@ -16,6 +18,34 @@ const WORKSPACE_PANELS: Record<string, React.ComponentType> = {
   business: BusinessWorkspace,
   coding: CodingWorkspace,
   os: OSWorkspace,
+}
+
+function WSStatusDot() {
+  const status = useWSStore((s) => s.status)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div
+        style={{
+          width: 5,
+          height: 5,
+          borderRadius: '50%',
+          background: status === 'open' ? 'var(--color-up)' : 'var(--color-down)',
+          flexShrink: 0,
+        }}
+      />
+      <span
+        style={{
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '0.55rem',
+          color: 'var(--text-secondary)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+        }}
+      >
+        {status}
+      </span>
+    </div>
+  )
 }
 
 export function PanelManager() {
@@ -44,6 +74,16 @@ export function PanelManager() {
 
         <Panel id="neural-map" title="Neural Map" noPad>
           <NeuralMapPanel mode={neuralMapMode} />
+        </Panel>
+
+        <Panel
+          id="terminal"
+          title="Terminal"
+          noPad
+          className="terminal-panel-outer"
+          headerExtra={<WSStatusDot />}
+        >
+          <TerminalContent />
         </Panel>
       </Suspense>
     </div>

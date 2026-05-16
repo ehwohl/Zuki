@@ -27,5 +27,10 @@ flask                # HTTP endpoint for n8n webhooks (N8N_WEBHOOK_ENABLED=true)
 # beautifulsoup4     # HTML-Parsing
 # requests           # HTTP-Client
 
+# ── Google Drive (Office Skill) ────────────────────────────────────────────────
+google-auth
+google-auth-oauthlib
+google-api-python-client
+
 # ── Datenbank / Persistenz (optional — Supabase) ───────────────────────────────
 # supabase           # Aktivieren wenn Supabase genutzt wird

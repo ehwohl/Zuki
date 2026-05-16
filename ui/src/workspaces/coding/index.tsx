@@ -50,11 +50,11 @@ export default function CodingWorkspace() {
               <div key={i} className="border-b border-[var(--border-color)] pb-3 last:border-0">
                 <div className="flex items-center gap-2 mb-1">
                   {o.language && (
-                    <span className="font-mono text-[0.55rem] tracking-widest uppercase text-[var(--accent-secondary)]">
+                    <span className="font-mono text-[0.6rem] tracking-widest uppercase text-[var(--accent-secondary)]">
                       {o.language}
                     </span>
                   )}
-                  <span className="font-mono text-[0.55rem] text-[var(--text-secondary)]">{o.ts}</span>
+                  <span className="font-mono text-[0.6rem] text-[var(--text-secondary)]">{o.ts}</span>
                 </div>
                 <pre className="font-mono text-xs text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
                   {o.text}

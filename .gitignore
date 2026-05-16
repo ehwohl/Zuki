@@ -12,6 +12,10 @@ backups/
 memory/clients/
 memory/*.json
 memory/*.txt
+memory/*.db
+
+# ── Google OAuth2 (never commit — contains client secret) ─────────────────────
+credentials.json
 
 # ── Python-Artifacts ──────────────────────────────────────────────────────────
 __pycache__/

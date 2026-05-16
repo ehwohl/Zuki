@@ -2,21 +2,27 @@ import { create } from 'zustand'
 import type { ThemeId } from '../themes'
 
 interface UIStore {
-  commandInputOpen: boolean
+  terminalFocusSignal: number
+  terminalInject: string | null
+  sidebarExpanded: boolean
   presentationMode: boolean
   theme: ThemeId
-  openCommandInput: () => void
-  closeCommandInput: () => void
+  focusTerminal: () => void
+  setTerminalInject: (cmd: string | null) => void
+  toggleSidebar: () => void
   togglePresentationMode: () => void
   setTheme: (id: ThemeId) => void
 }
 
 export const useUIStore = create<UIStore>((set) => ({
-  commandInputOpen: false,
+  terminalFocusSignal: 0,
+  terminalInject: null,
+  sidebarExpanded: false,
   presentationMode: false,
   theme: 'cyberpunk',
-  openCommandInput: () => set({ commandInputOpen: true }),
-  closeCommandInput: () => set({ commandInputOpen: false }),
+  focusTerminal: () => set((s) => ({ terminalFocusSignal: s.terminalFocusSignal + 1 })),
+  setTerminalInject: (cmd) => set({ terminalInject: cmd }),
+  toggleSidebar: () => set((s) => ({ sidebarExpanded: !s.sidebarExpanded })),
   togglePresentationMode: () => set((s) => ({ presentationMode: !s.presentationMode })),
   setTheme: (theme) => set({ theme }),
 }))

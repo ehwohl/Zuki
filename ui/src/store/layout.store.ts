@@ -50,7 +50,13 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       if (raw) {
         const parsed: PanelState[] = JSON.parse(raw)
         if (Array.isArray(parsed) && parsed.length > 0) {
-          set({ panels: Object.fromEntries(parsed.map((p) => [p.id, p])) })
+          // Preset is the source of truth for which panels exist.
+          // Stored positions override defaults only for panels already in the preset.
+          // This ensures panels added to the preset after a workspace was saved
+          // (e.g. the Terminal) always appear rather than being silently dropped.
+          const storedById = Object.fromEntries(parsed.map((p) => [p.id, p]))
+          const merged = preset.map((p) => storedById[p.id] ?? p)
+          set({ panels: Object.fromEntries(merged.map((p) => [p.id, p])) })
           return
         }
       }

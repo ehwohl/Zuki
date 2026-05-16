@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(git -C d:\\\\Zuki status --short)",
-      "Bash(dir d:\\\\Zuki /b)"
+      "Bash(dir d:\\\\Zuki /b)",
+      "Bash(node \"C:\\\\Users\\\\swat1\\\\.claude\\\\skills\\\\impeccable\\\\scripts\\\\load-context.mjs\")"
     ]
   }
 }

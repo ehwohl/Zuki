@@ -1,16 +1,15 @@
 # Zuki — CONTEXT.md
 > Current project state and active constraints. Updated per bundle.
-> Last updated: 2026-05 (post-Bundle 13)
+> Last updated: 2026-05-16 (post UI overhaul — Terminal + SkillSidebar)
 
 ---
 
 ## Current Focus
 
-**Prio 1: Bundle 10 — Office Skill + Google Drive.**
+**UI overhaul in progress.** Terminal panel and SkillSidebar shipped. Next: business workspace 3D polish, coding workspace audit, and further UI refinements.
 
-Bundle 14 (Business 3D city + Coding dep graph) is complete. CityScene (Three.js) and DepGraph
-(D3 force-directed) are implemented and wired end-to-end: React components, workspace panels,
-bridge emitters, skill calls. Migration plan phases 1–4 also done. Pending commit.
+Bundle 10 (Office Skill + Google Drive) is complete: OAuth2, SQLite index, `büro suche/brief/hochladen/index`.
+Bundle 14 (Business 3D city + Coding dep graph) is complete.
 
 ---
 
@@ -21,6 +20,27 @@ bridge emitters, skill calls. Migration plan phases 1–4 also done. Pending com
 - Coding workspace shows scratchpad output and D3 dependency graph in the UI
 - OS workspace exposes system status (TTS, STT, platform) in the UI
 - All panels communicate exclusively via `ui_bridge.py` WebSocket — no direct Python↔React imports
+- **Terminal panel** replaces the old CommandInput — persistent scrollable log, bottom-center, 640×280px default
+- **SkillSidebar** — collapsible left sidebar (40px / 240px), z-index 8, 5 categories, 16 commands
+
+---
+
+## UI Architecture (current, post-overhaul)
+
+| Component | File | Notes |
+|---|---|---|
+| Terminal panel | `ui/src/components/Terminal/index.tsx` | Persistent panel, all workspaces. Operator `›` cyan, Zuki `◆` magenta. |
+| Terminal store | `ui/src/store/terminal.store.ts` | Messages + history. `crypto.randomUUID()` for IDs. |
+| Skill sidebar | `ui/src/components/SkillSidebar/index.tsx` | Fixed, not a floating panel. `Ctrl+\` toggles. |
+| Skill config | `ui/src/components/SkillSidebar/skills.config.ts` | Edit this to add/rename commands. |
+| Panel presets | `ui/src/panels/layout_presets.ts` | TERMINAL added to all 4 workspace presets. |
+| UI store | `ui/src/store/ui.store.ts` | `terminalFocusSignal`, `terminalInject`, `sidebarExpanded`. No more `commandInputOpen`. |
+
+**Keyboard shortcuts:**
+- `Ctrl+Space` — focus terminal input
+- `Ctrl+\` — toggle skill sidebar
+- `Alt+1–4` — workspace switch
+- `Alt+P` — presentation mode
 
 ---
 
@@ -39,6 +59,7 @@ bridge emitters, skill calls. Migration plan phases 1–4 also done. Pending com
 - Implementing Linux stubs beyond what already exists
 - Choosing APIs or data sources for n8n — that research hasn't happened yet
 - Adding Redux, React Context, or any state solution besides Zustand to the UI
+- Re-adding a modal/overlay command input — the Terminal panel is the permanent replacement
 
 ---
 
@@ -46,8 +67,10 @@ bridge emitters, skill calls. Migration plan phases 1–4 also done. Pending com
 
 | Item | Status | Blocked on |
 |---|---|---|
+| Business 3D — sci-fi polish | **Next** | Needs Three.js scene work on `CityScene.tsx` |
+| Coding workspace audit | **Next** | `impeccable` audit pending |
 | Bundle 14 — Business 3D city + Coding dep graph | **Done** (pending commit) | — |
-| Bundle 10 — Office Skill + Google Drive | **Active** | — |
+| Bundle 10 — Office Skill + Google Drive | **Done** | — |
 | n8n integration — Trading alerts | Planned, not active | API research (no timeline) |
 | n8n integration — RSS news pre-filter | Planned, not active | API research (no timeline) |
 | Linux migration — Piper TTS + xdotool | Planned | Hardware (Pop!_OS not yet active) |
