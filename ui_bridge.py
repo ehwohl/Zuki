@@ -81,6 +81,34 @@ def emit_workspace_change(workspace: str) -> None:
     emit("workspace_change", workspace=workspace)
 
 
+def emit_broker_map_nodes(nodes: list[dict]) -> None:
+    emit("broker_map_nodes", nodes=nodes)
+
+
+def emit_business_prompt(text: str) -> None:
+    emit("business_interview_prompt", text=text)
+
+
+def emit_business_score(score: int, report_path: str = "") -> None:
+    emit("business_score", score=score, report_path=report_path)
+
+
+def emit_coding_output(text: str, language: str = "") -> None:
+    emit("coding_output", text=text, language=language)
+
+
+def emit_os_status(tts: dict, stt: dict, platform: str) -> None:
+    emit("os_status", tts=tts, stt=stt, platform=platform)
+
+
+def emit_business_city_data(buildings: list[dict]) -> None:
+    emit("business_city_data", buildings=buildings)
+
+
+def emit_coding_dep_graph(nodes: list[dict], edges: list[dict]) -> None:
+    emit("coding_dep_graph", nodes=nodes, edges=edges)
+
+
 # ── Internal ─────────────────────────────────────────────────────────────────
 
 def _run_loop() -> None:

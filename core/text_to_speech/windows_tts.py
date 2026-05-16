@@ -18,10 +18,6 @@ from core.text_to_speech.tts_backend import TTSBackend
 
 log = get_logger("tts.windows")
 
-_DIM  = "\033[2m"
-_GRAY = "\033[90m"
-_R    = "\033[0m"
-
 
 class WindowsTTS(TTSBackend):
     """
@@ -99,7 +95,8 @@ class WindowsTTS(TTSBackend):
                 key = msvcrt.getch()
                 if key == b" ":
                     log.debug("[TTS-WIN] Mute: Leertaste erkannt")
-                    print(f"\n  {_GRAY}[🔇]{_R}  {_DIM}Audio stummgeschaltet.{_R}")
+                    from core.ui_factory import get_renderer as _get_ui
+                    _get_ui().system_msg("Audio stummgeschaltet.")
                     try:
                         self._engine.stop()
                     except Exception:

@@ -19,6 +19,9 @@ pyttsx3
 mss                  # blitzschnelle plattformübergreifende Screen-Captures
 Pillow               # Bildverarbeitung & JPEG-Export (PIL.Image)
 
+# ── Webhook Receiver (n8n entry point) ─────────────────────────────────────────
+flask                # HTTP endpoint for n8n webhooks (N8N_WEBHOOK_ENABLED=true)
+
 # ── Web-Scraper (Broker-Skill — LIVE UPGRADE) ──────────────────────────────────
 # newspaper3k        # Artikel-Extraktion aus URLs
 # beautifulsoup4     # HTML-Parsing

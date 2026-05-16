@@ -23,6 +23,8 @@ TypeScript:  requires ts-node       → hint if not installed
 Log marker: [CODING-SKILL]
 """
 
+import re
+
 from core.logger import get_logger
 from workspaces.base import Skill
 from workspaces.coding.buffer import LANGUAGES, NO_RUN_LANGS, LANG_LABEL, CodeBuffer
@@ -269,7 +271,16 @@ class CodingSkill(Skill):
 
         status = "✓" if result.success else "✗"
         header = f"── {label} [{status}] {'─' * max(0, 38 - len(label))} "
-        return f"{header}\n{result.format_output()}"
+        output = f"{header}\n{result.format_output()}"
+
+        import ui_bridge
+        ui_bridge.emit_coding_output(output, language=lang)
+
+        nodes, edges = _parse_deps(lang, code)
+        if nodes:
+            ui_bridge.emit_coding_dep_graph(nodes, edges)
+
+        return output
 
     # ── Help ──────────────────────────────────────────────────────────────────
 
@@ -317,6 +328,60 @@ def _resolve_lang(token: str) -> str | None:
         "tv":         "pine",
     }
     return aliases.get(token.lower())
+
+
+_PY_BUILTINS = frozenset({
+    'os', 'sys', 're', 'json', 'time', 'datetime', 'threading', 'pathlib',
+    'collections', 'itertools', 'functools', 'math', 'random', 'io',
+    'subprocess', 'shutil', 'tempfile', 'socket', 'hashlib', 'base64',
+    'urllib', 'http', 'typing', 'abc', 'dataclasses', 'enum', 'copy',
+    'logging', 'warnings', 'traceback', 'inspect', 'ast', 'importlib',
+    'unittest', 'argparse', 'struct', 'array', 'queue', 'asyncio',
+    'contextlib', 'decimal', 'fractions', 'statistics', 'csv', 'pickle',
+    'string', 'textwrap', 'pprint', 'glob', 'fnmatch', 'difflib',
+    'builtins', 'weakref', 'types', 'operator', 'heapq', 'bisect',
+})
+
+_JS_BUILTINS = frozenset({
+    'fs', 'path', 'http', 'https', 'os', 'crypto', 'events',
+    'stream', 'util', 'readline', 'child_process', 'cluster',
+    'url', 'querystring', 'buffer', 'assert', 'net', 'dns',
+})
+
+
+def _parse_deps(lang: str, code: str) -> tuple[list[dict], list[dict]]:
+    """Parse import statements and return (nodes, edges) for the dep graph."""
+    modules: set[str] = set()
+
+    if lang == 'python':
+        for m in re.finditer(r'^import\s+([\w.]+)', code, re.MULTILINE):
+            modules.add(m.group(1).split('.')[0])
+        for m in re.finditer(r'^from\s+([\w.]+)\s+import', code, re.MULTILINE):
+            pkg = m.group(1)
+            if not pkg.startswith('.'):
+                modules.add(pkg.split('.')[0])
+        classify = lambda mod: 'builtin' if mod in _PY_BUILTINS else 'third-party'
+
+    elif lang in ('js', 'ts'):
+        for m in re.finditer(r"""(?:import|require)\s*(?:.*?\s+from\s+)?['"]([^'"/][^'"]*?)['"]""", code):
+            pkg = m.group(1).split('/')[0].lstrip('@')
+            if pkg:
+                modules.add(pkg)
+        classify = lambda mod: 'builtin' if mod in _JS_BUILTINS else 'third-party'
+
+    else:
+        return [], []
+
+    if not modules:
+        return [], []
+
+    nodes: list[dict] = [{'id': 'buffer', 'label': f'{LANG_LABEL.get(lang, lang)} buffer', 'type': 'local'}]
+    edges: list[dict] = []
+    for mod in sorted(modules):
+        nodes.append({'id': mod, 'label': mod, 'type': classify(mod)})
+        edges.append({'source': 'buffer', 'target': mod})
+
+    return nodes, edges
 
 
 def _get_ui():

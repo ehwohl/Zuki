@@ -3,6 +3,7 @@ import * as d3 from 'd3'
 import type { GeoPermissibleObjects } from 'd3'
 import * as topojson from 'topojson-client'
 import type { Topology, GeometryCollection } from 'topojson-specification'
+import { useWSStore } from '../../store/ws.store'
 
 interface DataNode {
   id: string
@@ -11,7 +12,7 @@ interface DataNode {
   active: boolean
 }
 
-const MOCK_NODES: DataNode[] = [
+const DEFAULT_NODES: DataNode[] = [
   { id: 'nyse', coords: [-74, 40.7], label: 'NYSE', active: true },
   { id: 'lse', coords: [-0.1, 51.5], label: 'LSE', active: true },
   { id: 'tse', coords: [139.7, 35.7], label: 'TSE', active: false },
@@ -22,6 +23,16 @@ const MOCK_NODES: DataNode[] = [
 export default function WorldMap() {
   const svgRef = useRef<SVGSVGElement>(null)
   const [tooltip, setTooltip] = useState<{ x: number; y: number; label: string } | null>(null)
+  const [nodes, setNodes] = useState<DataNode[]>(DEFAULT_NODES)
+  const lastMessage = useWSStore((s) => s.lastMessage)
+
+  // Update nodes when broker_map_nodes arrives from Python
+  useEffect(() => {
+    if (lastMessage?.type === 'broker_map_nodes') {
+      const incoming = (lastMessage.nodes as DataNode[] | undefined) ?? []
+      if (incoming.length > 0) setNodes(incoming)
+    }
+  }, [lastMessage])
 
   useEffect(() => {
     const el = svgRef.current!.parentElement!
@@ -37,20 +48,16 @@ export default function WorldMap() {
       .center([15, 20])
 
     const path = d3.geoPath().projection(projection)
-
     const g = svg.append('g')
 
-    // Zoom + pan
     svg.call(
       d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.8, 8]).on('zoom', (e) => {
         g.attr('transform', e.transform)
       }),
     )
 
-    // Ocean background
     g.append('rect').attr('width', W).attr('height', H).attr('fill', 'transparent')
 
-    // Graticule
     const graticule = d3.geoGraticule()()
     g.append('path')
       .datum(graticule as GeoPermissibleObjects)
@@ -59,7 +66,6 @@ export default function WorldMap() {
       .attr('stroke', 'rgba(0,245,255,0.04)')
       .attr('stroke-width', 0.5)
 
-    // Load world topology
     fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
       .then((r) => r.json())
       .then((world: Topology<{ countries: GeometryCollection }>) => {
@@ -75,13 +81,11 @@ export default function WorldMap() {
           .attr('stroke-width', 0.5)
           .attr('stroke-linejoin', 'round')
 
-        // Data nodes
-        MOCK_NODES.forEach((node) => {
+        nodes.forEach((node) => {
           const pos = projection(node.coords)
           if (!pos) return
           const [px, py] = pos
 
-          // Outer pulse ring
           const ring = g.append('circle')
             .attr('cx', px).attr('cy', py)
             .attr('r', node.active ? 8 : 5)
@@ -94,7 +98,6 @@ export default function WorldMap() {
             ring.style('animation', `nodeRing 2s ease-out infinite`)
           }
 
-          // Inner dot
           g.append('circle')
             .attr('cx', px).attr('cy', py)
             .attr('r', 3)
@@ -106,7 +109,6 @@ export default function WorldMap() {
         })
       })
       .catch(() => {
-        // Offline fallback — show grid only
         g.append('text')
           .attr('x', W / 2).attr('y', H / 2)
           .attr('text-anchor', 'middle')
@@ -115,7 +117,7 @@ export default function WorldMap() {
           .attr('font-size', '11px')
           .text('[ MAP DATA OFFLINE ]')
       })
-  }, [])
+  }, [nodes])
 
   return (
     <div className="w-full h-full relative">

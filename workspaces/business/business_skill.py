@@ -32,9 +32,10 @@ _REPORT_DIR = _ROOT / "temp" / "business_reports"
 
 
 class BusinessSkill(Skill):
-    name        = "business"
-    triggers    = {"business", "analyse", "analysiere"}
-    description = (
+    name         = "business"
+    triggers     = {"business", "analyse", "analysiere"}
+    tenant_aware = True   # handles customer data — DSGVO-aware
+    description  = (
         "Digital weakness analysis for gastro businesses: "
         "Google Business Profile, social media, reviews, competition. "
         "Creates PDF report and runs workflow interview."
@@ -97,6 +98,10 @@ class BusinessSkill(Skill):
             return f"Analyse fehlgeschlagen: {e}\nDetails in logs/error.log"
 
         self._last_analysis = result
+
+        import ui_bridge
+        ui_bridge.emit_business_score(result.score)
+        ui_bridge.emit_business_city_data(_build_city_buildings(result))
 
         stub_hint = "  ⚠️  Stub-Daten (kein SerpAPI-Key)" if result.stub_mode else ""
         lines = [
@@ -171,7 +176,10 @@ class BusinessSkill(Skill):
 
         # Interactive questionnaire loop
         while not interview.is_done():
-            ui.speak_zuki(interview.format_question())
+            import ui_bridge
+            question_text = interview.format_question()
+            ui_bridge.emit_business_prompt(question_text)
+            ui.speak_zuki(question_text)
             answer = ui.user_prompt().strip()
 
             if answer.lower() in _CANCEL_CMDS:
@@ -202,6 +210,15 @@ class BusinessSkill(Skill):
         _REPORT_DIR.mkdir(parents=True, exist_ok=True)
         filename = _safe_filename(display_name) + "_workflow.pdf"
         output   = _REPORT_DIR / filename
+        try:
+            import ui_bridge as _bridge
+            _bridge.emit_business_score(summary.get("score", 0))
+            _bridge.emit_business_city_data([{
+                "id": "target", "label": display_name,
+                "score": summary.get("score", 0), "flagship": True,
+            }])
+        except Exception:
+            pass
         try:
             path = build_workflow_report(
                 output_path = output,
@@ -262,6 +279,24 @@ class BusinessSkill(Skill):
     def _get_ui():
         from core.ui_factory import get_renderer
         return get_renderer()
+
+
+def _build_city_buildings(result) -> list[dict]:
+    buildings = [{
+        "id": "target",
+        "label": (result.name or "Target")[:20],
+        "score": result.score,
+        "flagship": True,
+    }]
+    for i, comp in enumerate(result.competitors[:6]):
+        label = comp.get("name", f"Comp {i + 1}") if isinstance(comp, dict) else f"Comp {i + 1}"
+        buildings.append({
+            "id": f"comp_{i}",
+            "label": label[:20],
+            "score": comp.get("score", 50) if isinstance(comp, dict) else 50,
+            "flagship": False,
+        })
+    return buildings
 
 
 def _safe_filename(name: str) -> str:

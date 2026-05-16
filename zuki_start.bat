@@ -37,9 +37,12 @@ if not exist "%BRIDGE%" (
 start "ZUKI-OS - UI Dev Server" /D "%UI_DIR%" cmd /k "npm run dev"
 
 :: ── Python WebSocket Bridge ───────────────────────────────────────────────────
+:: Kill any stale backend window before starting fresh.
+taskkill /F /FI "WINDOWTITLE eq ZUKI-OS - Python Backend" >nul 2>&1
+
 :: Double-outer-quote the entire cmd /k argument so cmd.exe treats it as one
 :: command string: cmd /k ""<python>" "<script>"" → runs python with the script.
-start "ZUKI-OS - Bridge 8765" /D "%ROOT%" cmd /k ""%PYTHON%" "%BRIDGE%""
+start "ZUKI-OS - Python Backend" /D "%ROOT%" cmd /k ""%PYTHON%" "%ROOT%\core\main.py""
 
 :: ── Wait, then open browser ───────────────────────────────────────────────────
 echo.

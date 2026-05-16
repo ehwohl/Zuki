@@ -3,8 +3,6 @@ import os
 import warnings
 import logging
 import atexit
-import threading
-import time
 
 # ── Suppress all third-party warnings permanently ─────────────────────────────
 warnings.filterwarnings("ignore")
@@ -34,11 +32,8 @@ from core.llm_manager import LLMManager
 from core.api_manager import APIManager
 from core.speech_to_text.whisper_engine import WhisperEngine
 from core.text_to_speech.tts_engine import TTSEngine
-from core.news_manager import NewsManager
-from core.calendar_manager import get_todays_events
 from memory.history_manager import HistoryManager
 from memory.user_profile import UserProfile
-from workspaces.broker.scraper import fetch_news
 from workspaces import registry as skill_registry
 from core import vision_manager as vision
 from tools.backup_manager import create_snapshot, format_snapshot_list, AutoBackup
@@ -50,17 +45,14 @@ from tools.system_test import SystemTest
 from core.tenant import get_tenant_manager
 from core.router_agent import RouterAgent
 from tools.cleanup_manager import CleanupManager
+import ui_bridge
 
 LISTEN_TRIGGERS  = {"hör zu", "hoer zu"}
 EXIT_TRIGGERS    = {"exit", "quit", "beenden"}
-BROKER_TRIGGERS  = {"broker"}
-BROKER_EXIT      = {"main", "exit broker"}
 VISION_TRIGGERS  = {"vision", "screenshot", "schau hin", "was siehst du"}
 SAVE_TRIGGERS    = {"save", "speichern", "merken"}
 CLOUD_TEST       = {"cloud test", "cloud status", "cloud ping"}
 TENANT_CMD       = "tenant"
-
-SCRAPER_INTERVAL = int(os.getenv("SCRAPER_INTERVAL", "600"))  # default 10 min
 
 
 # ── Tenant Guard ───────────────────────────────────────────────────────────────
@@ -167,27 +159,6 @@ def listen(stt: WhisperEngine) -> str | None:
         ui.error_msg("Mikrofon nicht erreichbar. Details: logs/zuki.log")
         return None
 
-
-def _scraper_loop(simulation: bool, stop_event: threading.Event) -> None:
-    """
-    Hintergrund-Thread: prüft alle SCRAPER_INTERVAL Sekunden ob neue News
-    geholt werden sollen.
-
-    SIM  → nur Log-Eintrag (kein Terminal-Output)
-    LIVE → fetch_news() aufrufen
-    """
-    log.info(f"Scraper-Thread gestartet (Intervall: {SCRAPER_INTERVAL}s)")
-    while not stop_event.wait(timeout=SCRAPER_INTERVAL):
-        if simulation:
-            log.debug("[DEBUG] Scraper-Check aktiv — SIM-Modus, kein echter Fetch")
-        else:
-            log.info("[SCRAPER] Starte automatischen News-Fetch...")
-            try:
-                count = fetch_news()
-                log.info(f"[SCRAPER] {count} neue Artikel abgerufen")
-            except Exception as e:
-                log.warning(f"[SCRAPER] Fehler beim Fetch: {e}")
-    log.info("Scraper-Thread beendet")
 
 
 def _check_vision() -> bool:
@@ -322,22 +293,10 @@ def run():
     atexit.register(shutdown, stt, tts)
     history  = HistoryManager()
     profile  = UserProfile()
-    news     = NewsManager()
     api_mgr  = APIManager()
 
     # ── Initialize vision system (clean up stale frames) ──────────────────────
     vision.init()   # loggt intern — kein Terminal-Output
-
-    # ── Scraper-Hintergrund-Thread ─────────────────────────────────────────────
-    _stop_scraper = threading.Event()
-    _scraper_thread = threading.Thread(
-        target=_scraper_loop,
-        args=(llm.simulation, _stop_scraper),
-        daemon=True,
-        name="scraper-bg",
-    )
-    _scraper_thread.start()
-    atexit.register(_stop_scraper.set)
 
     # ── Auto-Backup-Thread ─────────────────────────────────────────────────────
     _auto_backup = AutoBackup()
@@ -358,7 +317,6 @@ def run():
     os.system("cls" if sys.platform == "win32" else "clear")
     display_startup_dashboard(llm, api_mgr, stt, tts, history, profile, tenant_mgr)
 
-    broker_mode   = False   # activated by 'broker' command
     last_response = ""      # last Zuki response — for manual / auto save
 
     # ── Cloud memory — independent of LLM simulation mode ────────────────────
@@ -404,20 +362,61 @@ def run():
     # ── Session state helper (closure over local variables) ───────────────────
     def _save_state() -> None:
         state.save({
-            "broker_mode":      broker_mode,
             "cloud_auto_save":  cloud.auto_save,
             "cloud_session_id": cloud._session_id,
             "cloud_save_count": cloud.save_count,
             "last_response":    last_response[:500],
         })
 
+    # ── Context builder for skill dispatch ────────────────────────────────────
+    def _make_context(user_input: str, cmd: str) -> dict:
+        return {
+            "user_input": user_input,
+            "cmd":        cmd,
+            "api_mgr":   api_mgr,
+            "llm":       llm,
+            "profile":   profile,
+            "tts":       tts,
+            "stt":       stt,
+        }
+
+    # ── UI bridge command handler — routes React commands to skill dispatch ───
+    def _ui_command_handler(text: str, workspace: str, _tenant: str) -> None:
+        _cmd = text.strip().lower()
+        _skill = skill_registry.get_skill_for(_cmd)
+        if _skill:
+            _resp = _skill.handle(_make_context(text, _cmd))
+            if _resp:
+                ui_bridge.emit_response(_resp, workspace=workspace)
+        else:
+            ui_bridge.emit_response(f"Kein Befehl erkannt: {text}", workspace=workspace)
+
+    # ── Start WebSocket bridge ────────────────────────────────────────────────
+    ui_bridge.start(command_handler=_ui_command_handler)
+
+    # ── n8n Webhook Receiver (disabled by default — set N8N_WEBHOOK_ENABLED=true) ──
+    if os.getenv("N8N_WEBHOOK_ENABLED", "false").lower() == "true":
+        from workspaces.broker import webhook_receiver as _wh_recv
+        _wh_port = int(os.getenv("N8N_WEBHOOK_PORT", "8766"))
+
+        def _n8n_handler(msg_type: str, payload: dict) -> None:
+            _routable = skill_registry.get_all_descriptions()
+            _chosen   = router.route(f"n8n:{msg_type}", _routable)
+            for _sname in _chosen:
+                _sk = skill_registry.get_skill_for(
+                    next(
+                        (s["triggers"][0] for s in _routable if s["name"] == _sname),
+                        _sname,
+                    )
+                )
+                if _sk is not None:
+                    _sk.handle(_make_context(f"n8n:{msg_type}", msg_type))
+
+        _wh_recv.start(_wh_port, _n8n_handler)
+        log.info("[MAIN] n8n webhook active on port %d", _wh_port)
+
     # ── Apply session recovery ─────────────────────────────────────────────────
     if _restore_answer and _prev_state:
-        if _prev_state.get("broker_mode"):
-            broker_mode     = True
-            news_count      = news.scan()
-            calendar_events = get_todays_events()
-            log.info("[SESSION-RESTORE] Broker-Modus wiederhergestellt")
         if _prev_state.get("cloud_auto_save") and cloud.enabled:
             cloud.enable_auto_save()
             log.info("[SESSION-RESTORE] Auto-Save wiederhergestellt")
@@ -435,31 +434,6 @@ def run():
             # ── Exit ───────────────────────────────────────────────────────────
             if cmd in EXIT_TRIGGERS:
                 break
-
-            # ── Broker aktivieren ──────────────────────────────────────────────
-            if cmd in BROKER_TRIGGERS:
-                if not broker_mode:
-                    news_count      = news.scan()
-                    calendar_events = get_todays_events()
-                    broker_mode     = True
-                    log.info("Broker-Modus aktiviert")
-                    ui.system_msg("Automatische News-Überwachung ist bereit.")
-                    _save_state()
-                ui.print_broker_status(
-                    news_count      = news.count,
-                    watchlist_hits  = news.watchlist_hits,
-                    sentiment       = news.overall_sentiment,
-                    calendar_events = calendar_events,
-                )
-                continue
-
-            # ── Broker deaktivieren ────────────────────────────────────────────
-            if cmd in BROKER_EXIT:
-                broker_mode = False
-                log.info("Broker-Modus deaktiviert")
-                ui.print_broker_deactivated()
-                _save_state()
-                continue
 
             # ── Voice ──────────────────────────────────────────────────────────
             if cmd in LISTEN_TRIGGERS:
@@ -881,13 +855,7 @@ def run():
                 history.append("user", user_input)
                 ui.thinking()
                 log.info(f"[SKILL-INVOKE] {skill.name} | cmd={cmd[:60]}")
-                response = skill.handle({
-                    "user_input": user_input,
-                    "cmd":        cmd,
-                    "api_mgr":   api_mgr,
-                    "llm":       llm,
-                    "profile":   profile,
-                })
+                response = skill.handle(_make_context(user_input, cmd))
                 if response is not None:
                     history.append("assistant", response)
                     last_response = response
@@ -925,13 +893,7 @@ def run():
                         if not _tenant_guard(_sk, tenant_mgr):
                             continue
                         log.info(f"[ROUTER-INVOKE] {_sname} | input={user_input[:60]}")
-                        _r = _sk.handle({
-                            "user_input": user_input,
-                            "cmd":        cmd,
-                            "api_mgr":   api_mgr,
-                            "llm":       llm,
-                            "profile":   profile,
-                        })
+                        _r = _sk.handle(_make_context(user_input, cmd))
                         if _r is not None:
                             _responses.append(_r)
                             cloud.save_skill_conversation(_sname, _r)
@@ -948,33 +910,6 @@ def run():
                         tts.speak(response)
                         continue
                     # Router selected skills but all returned None → fall through to LLM
-
-            # ── Report (nur im Broker-Modus) ───────────────────────────────────
-            if news.is_report_trigger(user_input):
-                if not broker_mode:
-                    ui.speak_zuki("Broker-Modus nicht aktiv. Bitte zuerst 'broker' eingeben.")
-                    continue
-                history.append("user", user_input, source="broker")
-                ui.thinking()
-                if not news.has_news:
-                    response = "Keine News für heute in der Inbox gefunden."
-                elif llm.simulation:
-                    response = news.build_sim_report()
-                else:
-                    ui.system_msg(f"[🗞] {news.count} Artikel werden ausgewertet...")
-                    try:
-                        response = llm.chat(
-                            [{"role": "user", "content": news.build_prompt()}],
-                            max_tokens=2048,
-                        )
-                    except Exception as e:
-                        log.error(f"LLM News-Fehler: {e}")
-                        response = "Auswertung fehlgeschlagen. Details: logs/zuki.log"
-                history.append("assistant", response, source="broker")
-                ui.speak_zuki(response)
-                ui.speaking()
-                tts.speak(response)
-                continue
 
             # ── Normale Antwort ────────────────────────────────────────────────
             history.append("user", user_input)

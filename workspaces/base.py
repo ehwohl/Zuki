@@ -11,6 +11,8 @@ Context dict (populated by main.py):
   api_mgr    : APIManager    — multi-provider LLM
   llm        : LLMManager    — chat loop LLM
   profile    : UserProfile
+  tts        : TTSEngine     — for get_status() in OS skill
+  stt        : WhisperEngine — for mode_label in OS skill
 """
 
 from abc import ABC, abstractmethod
