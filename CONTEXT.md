@@ -1,15 +1,14 @@
 # Zuki — CONTEXT.md
 > Current project state and active constraints. Updated per bundle.
-> Last updated: 2026-05-16 (post UI overhaul — Terminal + SkillSidebar)
+> Last updated: 2026-05-16 (post Bundle 16 — Skill-Panels)
 
 ---
 
 ## Current Focus
 
-**UI overhaul in progress.** Terminal panel and SkillSidebar shipped. Next: business workspace 3D polish, coding workspace audit, and further UI refinements.
+**Bundle 16 complete (pending commit).** Monaco editor, Office workspace (Alt+5), Business dashboard (SVG arc gauge + report history) all shipped. Next: Bundle 11 — Music-Practice (pitch detection, instrument/vocal learning mode).
 
-Bundle 10 (Office Skill + Google Drive) is complete: OAuth2, SQLite index, `büro suche/brief/hochladen/index`.
-Bundle 14 (Business 3D city + Coding dep graph) is complete.
+Bundles 1–13 complete. Bundle 16 (Skill-Panels) complete. Business 3D sci-fi polish done. Coding workspace audit done.
 
 ---
 
@@ -17,11 +16,13 @@ Bundle 14 (Business 3D city + Coding dep graph) is complete.
 
 - Broker workspace renders live data in the UI (WorldMap, NewsFeed, Watchlist panels populated via WebSocket)
 - Business workspace shows interview flow, score output, and 3D city model in the UI
-- Coding workspace shows scratchpad output and D3 dependency graph in the UI
+- Coding workspace: Monaco editor (Ctrl+Enter run), code output panel, D3 dependency graph
 - OS workspace exposes system status (TTS, STT, platform) in the UI
 - All panels communicate exclusively via `ui_bridge.py` WebSocket — no direct Python↔React imports
 - **Terminal panel** replaces the old CommandInput — persistent scrollable log, bottom-center, 640×280px default
 - **SkillSidebar** — collapsible left sidebar (40px / 240px), z-index 8, 5 categories, 16 commands
+- **Office workspace** (Alt+5) — Drive index stats, search panel, auth/reports panel
+- **Business dashboard** — SVG arc score gauge (green/amber/red), report history panel (up to 20 PDFs)
 
 ---
 
@@ -39,7 +40,7 @@ Bundle 14 (Business 3D city + Coding dep graph) is complete.
 **Keyboard shortcuts:**
 - `Ctrl+Space` — focus terminal input
 - `Ctrl+\` — toggle skill sidebar
-- `Alt+1–4` — workspace switch
+- `Alt+1–5` — workspace switch (5 = Office)
 - `Alt+P` — presentation mode
 
 ---
@@ -67,10 +68,8 @@ Bundle 14 (Business 3D city + Coding dep graph) is complete.
 
 | Item | Status | Blocked on |
 |---|---|---|
-| Business 3D — sci-fi polish | **Next** | Needs Three.js scene work on `CityScene.tsx` |
-| Coding workspace audit | **Next** | `impeccable` audit pending |
-| Bundle 14 — Business 3D city + Coding dep graph | **Done** (pending commit) | — |
-| Bundle 10 — Office Skill + Google Drive | **Done** | — |
+| Commit Bundle 16 | **Immediate** | — |
+| Bundle 11 — Music-Practice | **Next** | Pitch detection research needed |
 | n8n integration — Trading alerts | Planned, not active | API research (no timeline) |
 | n8n integration — RSS news pre-filter | Planned, not active | API research (no timeline) |
 | Linux migration — Piper TTS + xdotool | Planned | Hardware (Pop!_OS not yet active) |
