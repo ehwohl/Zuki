@@ -310,6 +310,14 @@ def run():
     skill_registry.discover_skills()
     log.info(f"Skills geladen: {skill_registry.list_names()}")
 
+    # ── Wire pitch_event handler → MusicSkill ─────────────────────────────────
+    _music_skill = skill_registry._registry.get("music")
+    if _music_skill:
+        ui_bridge.set_pitch_event_handler(
+            lambda msg: _music_skill.handle({"cmd": "_pitch_event", "data": msg})
+        )
+        log.info("[MAIN] pitch_event handler registered → MusicSkill")
+
     # ── Router-Agent ───────────────────────────────────────────────────────────
     router = RouterAgent(api_mgr)
 
